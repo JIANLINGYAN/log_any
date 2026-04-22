@@ -58,6 +58,18 @@ const Utils = {
   },
 
   /**
+   * 正则高亮文本（支持正则对象，高亮所有匹配）
+   */
+  highlightTextRegex(html, regex) {
+    if (!regex) return html;
+    // 确保使用全局标志
+    const globalRegex = new RegExp(regex.source, regex.flags.includes('g') ? regex.flags : regex.flags + 'g');
+    return html.replace(globalRegex, (match) => {
+      return `<mark class="regex-highlight">${this.escapeHtml(match)}</mark>`;
+    });
+  },
+
+  /**
    * 高亮变量值
    */
   highlightVariables(html, variables) {

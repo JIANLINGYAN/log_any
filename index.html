@@ -60,7 +60,8 @@
       <div class="toolbar">
         <div class="search-box">
           <span class="search-icon">/</span>
-          <input type="text" id="searchInput" placeholder="搜索日志内容..." autocomplete="off">
+          <input type="text" id="searchInput" placeholder="正则搜索日志内容 (支持 regex)..." autocomplete="off">
+          <span class="search-hint" title="支持正则表达式，如 outdoor_run_pause|outdoor_run_start">正则</span>
         </div>
         <div class="stats-bar">
           <span>总计 <span class="stat-value" id="statTotal">0</span></span>
@@ -413,6 +414,18 @@
   </div>
 </div>
 
+<!-- Context Popup -->
+<div class="context-popup" id="contextPopup" style="display:none">
+  <div class="context-popup-header">
+    <div class="context-popup-title">
+      <span class="context-popup-line">Line <span id="contextLineNumber">0</span></span>
+      <span class="context-popup-badge" id="contextModuleBadge"></span>
+    </div>
+    <button class="context-popup-close" onclick="app.closeContextPopup()">✕</button>
+  </div>
+  <div class="context-popup-body" id="contextPopupBody"></div>
+</div>
+
 <!-- JavaScript Modules -->
 <script src="js/utils.js"></script>
 <script src="js/virtual-scroller.js"></script>
@@ -424,6 +437,8 @@
 <script src="plugins/ble_connect.js" onerror="console.error('Failed to load ble_connect.js')"></script>
 <script src="plugins/example_plugin.js" onerror="console.error('Failed to load example_plugin.js')"></script>
 <script src="plugins/neck_health.js" onerror="console.error('Failed to load neck_health.js')"></script>
+<script src="plugins/device_context.js" onerror="console.error('Failed to load device_context.js')"></script>
+<script src="plugins/health_monitor.js" onerror="console.error('Failed to load health_monitor.js')"></script>
 <script>
   // 调试：检查插件是否加载成功
   console.log('Plugin check:', {
@@ -432,7 +447,9 @@
     ota: typeof window.__PLUGIN_ota,
     ble_connect: typeof window.__PLUGIN_ble_connect,
     example: typeof window.__PLUGIN_example,
-    neck_health: typeof window.__PLUGIN_neck_health
+    neck_health: typeof window.__PLUGIN_neck_health,
+    device_context: typeof window.__PLUGIN_device_context,
+    health_monitor: typeof window.__PLUGIN_health_monitor
   });
 </script>
 
@@ -714,7 +731,9 @@ function loadPluginsFromFolder() {
     { filename: 'ota_v2.js', globalVar: '__PLUGIN_ota' },
     { filename: 'ble_connect.js', globalVar: '__PLUGIN_ble_connect' },
     { filename: 'example_plugin.js', globalVar: '__PLUGIN_example' },
-    { filename: 'neck_health.js', globalVar: '__PLUGIN_neck_health' }
+    { filename: 'neck_health.js', globalVar: '__PLUGIN_neck_health' },
+    { filename: 'device_context.js', globalVar: '__PLUGIN_device_context' },
+    { filename: 'health_monitor.js', globalVar: '__PLUGIN_health_monitor' }
   ];
   
   for (const { filename, globalVar } of pluginGlobals) {
@@ -745,7 +764,8 @@ function renderPluginList(plugins) {
   
   pluginList.innerHTML = plugins.map((item, index) => {
     const plugin = item.plugin;
-    const enabled = savedConfig[item.filename] !== false; // 默认启用
+    // 默认不启用，除非用户之前明确启用过
+    const enabled = savedConfig[item.filename] === true;
     const moduleCount = plugin.modules ? plugin.modules.length : 0;
     const patternCount = plugin.modules ? plugin.modules.reduce((sum, m) => sum + (m.patterns ? m.patterns.length : 0), 0) : 0;
     
@@ -818,7 +838,8 @@ function loadEnabledPlugins() {
   
   if (app.allPlugins && app.allPlugins.length > 0) {
     app.allPlugins.forEach(item => {
-      const enabled = savedConfig[item.filename] !== false; // 默认启用
+      // 只加载用户明确启用的插件
+      const enabled = savedConfig[item.filename] === true;
       if (enabled) {
         const plugin = JSON.parse(JSON.stringify(item.plugin));
         app.compilePluginPatterns(plugin);

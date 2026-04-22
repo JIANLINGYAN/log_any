@@ -271,18 +271,25 @@ class LogAnalyzerApp {
       );
     }
     
-    // 搜索过滤
+    // 搜索过滤（支持正则）
+    this.searchRegex = null;
     if (this.searchQuery) {
-      const queryLower = this.searchQuery.toLowerCase();
-      filtered = filtered.filter(e => 
-        e.raw.toLowerCase().includes(queryLower)
-      );
+      try {
+        this.searchRegex = new RegExp(this.searchQuery, 'i');
+        filtered = filtered.filter(e => this.searchRegex.test(e.raw));
+      } catch (err) {
+        // 正则无效时，回退到普通搜索
+        const queryLower = this.searchQuery.toLowerCase();
+        filtered = filtered.filter(e => 
+          e.raw.toLowerCase().includes(queryLower)
+        );
+      }
     }
     
     this.filteredEntries = filtered;
     this.updateStats();
     this.scroller.setItems(filtered);
-    this.renderNavigation(); // 更新导航面板
+    this.renderNavigation();
   }
 
   /**
@@ -295,9 +302,9 @@ class LogAnalyzerApp {
     
     let text = Utils.escapeHtml(entry.raw);
     
-    // 高亮搜索词
-    if (this.searchQuery) {
-      text = Utils.highlightText(text, Utils.escapeHtml(this.searchQuery));
+    // 正则高亮搜索词（支持所有匹配，不只是第一个）
+    if (this.searchRegex) {
+      text = Utils.highlightTextRegex(text, this.searchRegex);
     }
     // 高亮变量
     else if (Object.keys(entry.variables).length > 0) {
@@ -306,6 +313,13 @@ class LogAnalyzerApp {
     
     div.className = 'log-line ' + catClass;
     div.dataset.lineNum = entry.lineNum;
+    
+    // 点击打开上下文浮窗
+    div.style.cursor = 'pointer';
+    div.addEventListener('click', (e) => {
+      if (e.target.closest('.context-popup')) return; // 防止点击浮窗内元素触发
+      this.showContextPopup(entry);
+    });
     
     // 如果有模块信息，添加工具提示
     let tooltip = '';
@@ -492,30 +506,43 @@ class LogAnalyzerApp {
           </div>
       `;
       
-      // 显示前20条关键日志（避免过多）
-      const displayEntries = entries.slice(0, 50);
-      
-      displayEntries.forEach(entry => {
-        const preview = entry.raw.length > 50 ? entry.raw.substring(0, 50) + '...' : entry.raw;
+      // 显示所有日志（不再限制50条）
+      entries.forEach(entry => {
+        // 智能预览：优先显示完整日志，过长则截断但保持可读性
+        let preview;
+        
+        // 如果有变量，构建包含变量的高亮预览
+        if (Object.keys(entry.variables).length > 0) {
+          // 提取变量值并高亮显示
+          const varValues = Object.values(entry.variables)
+            .filter(v => v && v !== '0' && v !== 'false')
+            .join(', ');
+          
+          // 截取日志的关键部分（前80字符）+ 变量值
+          const rawPreview = entry.raw.length > 80 
+            ? entry.raw.substring(0, 80) + '...' 
+            : entry.raw;
+          
+          preview = varValues 
+            ? `<span class="nav-preview-text">${Utils.escapeHtml(rawPreview)}</span><span class="nav-vars">${Utils.escapeHtml(varValues)}</span>`
+            : `<span class="nav-preview-text">${Utils.escapeHtml(rawPreview)}</span>`;
+        } else {
+          // 没有变量，直接显示截断的日志
+          preview = entry.raw.length > 80 
+            ? Utils.escapeHtml(entry.raw.substring(0, 80)) + '...'
+            : Utils.escapeHtml(entry.raw);
+        }
         
         html += `
           <div class="nav-item" onclick="app.scrollToLine(${entry.lineNum})">
             <div class="nav-item-icon found">${icon}</div>
             <div class="nav-item-info">
               <div class="nav-item-line">Line ${entry.lineNum}</div>
-              <div class="nav-item-preview">${Utils.escapeHtml(preview)}</div>
+              <div class="nav-item-preview">${preview}</div>
             </div>
           </div>
         `;
       });
-      
-      if (entries.length > 50) {
-        html += `
-          <div class="nav-item" style="justify-content:center;color:var(--text-muted);font-size:11px;">
-            ... 还有 ${entries.length - 50} 条日志
-          </div>
-        `;
-      }
       
       html += '</div>';
     }
@@ -703,6 +730,85 @@ class LogAnalyzerApp {
       this.renderPluginInfo();
       this.renderModuleList();
     }
+  }
+
+  /**
+   * 显示上下文浮窗
+   */
+  showContextPopup(entry) {
+    const popup = document.getElementById('contextPopup');
+    const body = document.getElementById('contextPopupBody');
+    const lineNumEl = document.getElementById('contextLineNumber');
+    const badgeEl = document.getElementById('contextModuleBadge');
+    
+    // 设置行号
+    lineNumEl.textContent = entry.lineNum;
+    
+    // 设置模块标签
+    if (entry.moduleId) {
+      const module = this.findModuleById(entry.moduleId);
+      if (module) {
+        const pattern = module.patterns.find(p => p.id === entry.patternId);
+        badgeEl.textContent = (module.icon || '') + ' ' + module.name + (pattern ? ' - ' + (pattern.description || '') : '');
+        badgeEl.style.display = '';
+      } else {
+        badgeEl.style.display = 'none';
+      }
+    } else {
+      badgeEl.style.display = 'none';
+    }
+    
+    // 获取上下文行（前后各 10 行）
+    const contextRange = 10;
+    const currentIndex = this.logEntries.findIndex(e => e.lineNum === entry.lineNum);
+    const startIdx = Math.max(0, currentIndex - contextRange);
+    const endIdx = Math.min(this.logEntries.length, currentIndex + contextRange + 1);
+    
+    let html = '';
+    for (let i = startIdx; i < endIdx; i++) {
+      const ctxEntry = this.logEntries[i];
+      const isTarget = ctxEntry.lineNum === entry.lineNum;
+      
+      // 高亮当前行
+      let lineText = Utils.escapeHtml(ctxEntry.raw);
+      if (this.searchRegex) {
+        lineText = Utils.highlightTextRegex(lineText, this.searchRegex);
+      }
+      
+      html += `
+        <div class="context-line ${isTarget ? 'context-line-target' : ''}" 
+             data-line-num="${ctxEntry.lineNum}"
+             onclick="app.scrollToLine(${ctxEntry.lineNum}); app.closeContextPopup();">
+          <span class="context-line-num">${ctxEntry.lineNum}</span>
+          <span class="context-line-text">${lineText}</span>
+        </div>
+      `;
+    }
+    
+    body.innerHTML = html;
+    
+    // 显示浮窗
+    popup.style.display = '';
+    popup.classList.add('active');
+    
+    // 滚动到目标行（在浮窗内）
+    const targetLine = body.querySelector('.context-line-target');
+    if (targetLine) {
+      setTimeout(() => {
+        targetLine.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      }, 50);
+    }
+  }
+
+  /**
+   * 关闭上下文浮窗
+   */
+  closeContextPopup() {
+    const popup = document.getElementById('contextPopup');
+    popup.classList.remove('active');
+    setTimeout(() => {
+      popup.style.display = 'none';
+    }, 200);
   }
 }
 
