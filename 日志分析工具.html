@@ -1,0 +1,1637 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RS Log Analyzer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg-deep: #08090d;
+  --bg-primary: #0c0e14;
+  --bg-surface: #12151e;
+  --bg-elevated: #1a1e2e;
+  --bg-hover: #1e2236;
+  --border: #1e2236;
+  --border-light: #2a2f48;
+  --text-primary: #e8e4dc;
+  --text-secondary: #8a8698;
+  --text-muted: #55516a;
+  --accent: #e8c547;
+  --accent-dim: #b89a30;
+  --cat-sport: #4ade80;
+  --cat-sensor: #60a5fa;
+  --cat-bluetooth: #a78bfa;
+  --cat-system: #fb923c;
+  --cat-flash: #facc15;
+  --cat-algorithm: #f472b6;
+  --cat-default: #8a8698;
+  --scrollbar-track: #0c0e14;
+  --scrollbar-thumb: #2a2f48;
+  --radius: 6px;
+  --radius-lg: 10px;
+  --mono: 'DM Mono', 'Menlo', 'Consolas', monospace;
+  --display: 'Syne', 'DM Mono', sans-serif;
+}
+*, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+html, body { height:100%; overflow:hidden; }
+body {
+  font-family: var(--mono);
+  background: var(--bg-deep);
+  color: var(--text-primary);
+  font-size: 13px;
+  line-height: 1.5;
+}
+::-webkit-scrollbar { width:6px; height:6px; }
+::-webkit-scrollbar-track { background:var(--scrollbar-track); }
+::-webkit-scrollbar-thumb { background:var(--scrollbar-thumb); border-radius:3px; }
+::-webkit-scrollbar-thumb:hover { background:#3a3f58; }
+
+/* ─── Layout ─── */
+.app { display:flex; flex-direction:column; height:100vh; }
+.header {
+  display:flex; align-items:center; gap:16px;
+  padding:10px 20px;
+  background:var(--bg-primary);
+  border-bottom:1px solid var(--border);
+  flex-shrink:0;
+  z-index:10;
+}
+.header-logo {
+  font-family:var(--display);
+  font-weight:800;
+  font-size:16px;
+  letter-spacing:-0.02em;
+  color:var(--accent);
+  white-space:nowrap;
+}
+.header-logo span { color:var(--text-muted); font-weight:400; font-size:12px; margin-left:6px; }
+.header-actions { display:flex; gap:8px; margin-left:auto; }
+.btn {
+  font-family:var(--mono);
+  font-size:12px;
+  padding:6px 14px;
+  border:1px solid var(--border-light);
+  border-radius:var(--radius);
+  background:var(--bg-surface);
+  color:var(--text-secondary);
+  cursor:pointer;
+  transition:all .15s;
+  white-space:nowrap;
+}
+.btn:hover { background:var(--bg-elevated); color:var(--text-primary); border-color:var(--accent-dim); }
+.btn-accent {
+  background:var(--accent);
+  color:#0c0e14;
+  border-color:var(--accent);
+  font-weight:500;
+}
+.btn-accent:hover { background:#f0d060; border-color:#f0d060; }
+.btn-sm { padding:4px 10px; font-size:11px; }
+
+.main { display:flex; flex:1; overflow:hidden; }
+
+/* ─── Sidebar ─── */
+.sidebar {
+  width:280px;
+  min-width:280px;
+  background:var(--bg-primary);
+  border-right:1px solid var(--border);
+  display:flex;
+  flex-direction:column;
+  overflow:hidden;
+}
+.sidebar-section {
+  padding:14px 16px;
+  border-bottom:1px solid var(--border);
+}
+.sidebar-section:last-child { border-bottom:none; flex:1; overflow:hidden; display:flex; flex-direction:column; }
+.sidebar-title {
+  font-family:var(--display);
+  font-size:10px;
+  font-weight:700;
+  letter-spacing:0.1em;
+  text-transform:uppercase;
+  color:var(--text-muted);
+  margin-bottom:10px;
+}
+.plugin-info {
+  padding:10px 12px;
+  background:var(--bg-surface);
+  border:1px solid var(--border);
+  border-radius:var(--radius);
+}
+.plugin-name { font-weight:500; color:var(--text-primary); font-size:13px; }
+.plugin-meta { font-size:11px; color:var(--text-muted); margin-top:2px; }
+.plugin-desc { font-size:11px; color:var(--text-secondary); margin-top:6px; line-height:1.4; }
+.plugin-empty {
+  padding:20px;
+  text-align:center;
+  color:var(--text-muted);
+  font-size:12px;
+  border:1px dashed var(--border-light);
+  border-radius:var(--radius);
+}
+.plugin-empty .icon { font-size:24px; margin-bottom:8px; display:block; }
+
+/* Module list */
+.module-list { flex:1; overflow-y:auto; }
+.module-item {
+  display:flex;
+  align-items:center;
+  gap:10px;
+  padding:8px 12px;
+  border-radius:var(--radius);
+  cursor:pointer;
+  transition:background .12s;
+  user-select:none;
+}
+.module-item:hover { background:var(--bg-hover); }
+.module-item.active { background:var(--bg-elevated); }
+.module-check {
+  width:16px; height:16px;
+  border:1.5px solid var(--border-light);
+  border-radius:3px;
+  display:flex; align-items:center; justify-content:center;
+  flex-shrink:0;
+  transition:all .12s;
+  font-size:10px;
+  color:transparent;
+}
+.module-item.active .module-check {
+  border-color:var(--accent);
+  background:var(--accent);
+  color:var(--bg-deep);
+}
+.module-dot {
+  width:8px; height:8px;
+  border-radius:50%;
+  flex-shrink:0;
+}
+.module-name { font-size:12px; flex:1; }
+.module-count {
+  font-size:10px;
+  color:var(--text-muted);
+  background:var(--bg-surface);
+  padding:1px 6px;
+  border-radius:8px;
+  min-width:28px;
+  text-align:center;
+}
+
+/* Module actions */
+.module-actions {
+  display:flex;
+  gap:6px;
+  padding:8px 12px 0;
+}
+.module-actions .btn { flex:1; text-align:center; font-size:10px; padding:4px 6px; }
+
+/* ─── Content ─── */
+.content { flex:1; display:flex; flex-direction:column; overflow:hidden; }
+
+/* Toolbar */
+.toolbar {
+  display:flex;
+  align-items:center;
+  gap:10px;
+  padding:8px 16px;
+  background:var(--bg-primary);
+  border-bottom:1px solid var(--border);
+  flex-shrink:0;
+}
+.search-box {
+  flex:1;
+  position:relative;
+}
+.search-box input {
+  width:100%;
+  font-family:var(--mono);
+  font-size:12px;
+  padding:6px 10px 6px 30px;
+  background:var(--bg-surface);
+  border:1px solid var(--border);
+  border-radius:var(--radius);
+  color:var(--text-primary);
+  outline:none;
+  transition:border-color .15s;
+}
+.search-box input:focus { border-color:var(--accent-dim); }
+.search-box input::placeholder { color:var(--text-muted); }
+.search-box .search-icon {
+  position:absolute;
+  left:9px;
+  top:50%;
+  transform:translateY(-50%);
+  color:var(--text-muted);
+  font-size:12px;
+  pointer-events:none;
+}
+.stats-bar {
+  display:flex;
+  gap:16px;
+  font-size:11px;
+  color:var(--text-muted);
+  white-space:nowrap;
+}
+.stats-bar .stat-value { color:var(--text-secondary); font-weight:500; }
+.stats-bar .stat-accent { color:var(--accent); }
+
+/* Log Display */
+.log-container {
+  flex:1;
+  overflow-y:auto;
+  padding:0;
+  background:var(--bg-deep);
+}
+.log-line {
+  display:flex;
+  align-items:flex-start;
+  padding:3px 16px;
+  font-size:12px;
+  line-height:1.6;
+  border-left:3px solid transparent;
+  transition:background .08s;
+  cursor:default;
+}
+.log-line:hover { background:var(--bg-surface); }
+.log-line.highlighted { background:rgba(232,197,71,.08); }
+.log-line-num {
+  width:44px;
+  min-width:44px;
+  text-align:right;
+  padding-right:12px;
+  color:var(--text-muted);
+  font-size:11px;
+  user-select:none;
+  opacity:.6;
+}
+.log-line-cat {
+  width:6px;
+  min-width:6px;
+  height:6px;
+  border-radius:50%;
+  margin-top:7px;
+  margin-right:10px;
+  flex-shrink:0;
+}
+.log-line-text {
+  flex:1;
+  white-space:pre-wrap;
+  word-break:break-all;
+}
+.log-line-text .match-hl {
+  background:rgba(232,197,71,.25);
+  color:var(--accent);
+  border-radius:2px;
+  padding:0 1px;
+}
+.log-line-text .var-hl {
+  color:var(--accent);
+  font-weight:500;
+}
+.log-line .cat-tag {
+  font-size:9px;
+  padding:1px 5px;
+  border-radius:3px;
+  margin-left:8px;
+  flex-shrink:0;
+  opacity:.7;
+  font-weight:500;
+  letter-spacing:.03em;
+}
+
+/* Module separator */
+.module-separator {
+  display:flex;
+  align-items:center;
+  gap:8px;
+  padding:8px 16px;
+  font-size:11px;
+  color:var(--text-muted);
+  background:var(--bg-primary);
+  border-top:1px solid var(--border);
+  border-bottom:1px solid var(--border);
+  position:sticky;
+  top:0;
+  z-index:2;
+  user-select:none;
+}
+.module-separator .sep-dot {
+  width:8px; height:8px;
+  border-radius:50%;
+}
+.module-separator .sep-name { font-weight:500; color:var(--text-secondary); }
+.module-separator .sep-count { margin-left:auto; opacity:.6; }
+.module-separator .sep-toggle {
+  cursor:pointer;
+  padding:2px 6px;
+  border-radius:3px;
+  transition:background .1s;
+}
+.module-separator .sep-toggle:hover { background:var(--bg-hover); }
+
+/* Empty state */
+.empty-state {
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  height:100%;
+  color:var(--text-muted);
+  gap:12px;
+  padding:40px;
+  text-align:center;
+}
+.empty-state .empty-icon { font-size:48px; opacity:.3; }
+.empty-state .empty-title {
+  font-family:var(--display);
+  font-size:16px;
+  font-weight:600;
+  color:var(--text-secondary);
+}
+.empty-state .empty-desc { font-size:12px; line-height:1.6; max-width:400px; }
+
+/* ─── Flow Panel ─── */
+.flow-panel {
+  width:260px;
+  min-width:260px;
+  background:var(--bg-primary);
+  border-left:1px solid var(--border);
+  display:flex;
+  flex-direction:column;
+  overflow:hidden;
+}
+.flow-header {
+  padding:14px 16px;
+  border-bottom:1px solid var(--border);
+}
+.flow-title {
+  font-family:var(--display);
+  font-size:10px;
+  font-weight:700;
+  letter-spacing:.1em;
+  text-transform:uppercase;
+  color:var(--text-muted);
+}
+.flow-list { flex:1; overflow-y:auto; padding:8px 12px; }
+.flow-step {
+  display:flex;
+  align-items:flex-start;
+  gap:10px;
+  padding:8px 4px;
+  position:relative;
+}
+.flow-step:not(:last-child)::after {
+  content:'';
+  position:absolute;
+  left:11px;
+  top:28px;
+  bottom:-4px;
+  width:1.5px;
+  background:var(--border-light);
+}
+.flow-dot {
+  width:22px; min-width:22px; height:22px;
+  border-radius:50%;
+  display:flex; align-items:center; justify-content:center;
+  font-size:10px;
+  border:2px solid var(--border-light);
+  background:var(--bg-surface);
+  color:var(--text-muted);
+  position:relative;
+  z-index:1;
+  transition:all .2s;
+}
+.flow-dot.found {
+  border-color:var(--cat-sport);
+  background:rgba(74,222,128,.15);
+  color:var(--cat-sport);
+}
+.flow-dot.not-found {
+  border-color:var(--border-light);
+  background:var(--bg-surface);
+  color:var(--text-muted);
+}
+.flow-info { flex:1; }
+.flow-name { font-size:12px; color:var(--text-secondary); font-weight:400; }
+.flow-step.found .flow-name { color:var(--text-primary); }
+.flow-detail { font-size:10px; color:var(--text-muted); margin-top:2px; }
+.flow-line-ref {
+  font-size:10px;
+  color:var(--accent-dim);
+  margin-top:2px;
+  cursor:pointer;
+}
+.flow-line-ref:hover { color:var(--accent); text-decoration:underline; }
+
+/* ─── Modal ─── */
+.modal-overlay {
+  position:fixed; inset:0;
+  background:rgba(0,0,0,.6);
+  backdrop-filter:blur(4px);
+  display:flex; align-items:center; justify-content:center;
+  z-index:100;
+  opacity:0; pointer-events:none;
+  transition:opacity .2s;
+}
+.modal-overlay.active { opacity:1; pointer-events:auto; }
+.modal {
+  background:var(--bg-surface);
+  border:1px solid var(--border-light);
+  border-radius:var(--radius-lg);
+  width:90%;
+  max-width:700px;
+  max-height:80vh;
+  display:flex;
+  flex-direction:column;
+  box-shadow:0 20px 60px rgba(0,0,0,.5);
+}
+.modal-header {
+  display:flex; align-items:center; justify-content:space-between;
+  padding:16px 20px;
+  border-bottom:1px solid var(--border);
+}
+.modal-title {
+  font-family:var(--display);
+  font-size:15px;
+  font-weight:700;
+}
+.modal-close {
+  width:28px; height:28px;
+  border:1px solid var(--border);
+  border-radius:var(--radius);
+  background:var(--bg-elevated);
+  color:var(--text-muted);
+  cursor:pointer;
+  display:flex; align-items:center; justify-content:center;
+  font-size:14px;
+  transition:all .12s;
+}
+.modal-close:hover { background:var(--bg-hover); color:var(--text-primary); }
+.modal-body {
+  padding:20px;
+  overflow-y:auto;
+  flex:1;
+}
+.modal-body pre {
+  font-family:var(--mono);
+  font-size:11px;
+  line-height:1.6;
+  color:var(--text-secondary);
+  white-space:pre-wrap;
+  word-break:break-word;
+  background:var(--bg-deep);
+  padding:16px;
+  border-radius:var(--radius);
+  border:1px solid var(--border);
+}
+.modal-footer {
+  padding:12px 20px;
+  border-top:1px solid var(--border);
+  display:flex;
+  justify-content:flex-end;
+  gap:8px;
+}
+
+/* ─── Toast ─── */
+.toast {
+  position:fixed;
+  bottom:20px;
+  left:50%;
+  transform:translateX(-50%) translateY(20px);
+  background:var(--bg-elevated);
+  border:1px solid var(--border-light);
+  border-radius:var(--radius);
+  padding:8px 16px;
+  font-size:12px;
+  color:var(--text-primary);
+  z-index:200;
+  opacity:0;
+  transition:all .25s;
+  pointer-events:none;
+}
+.toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
+
+/* ─── Category colors ─── */
+.cat-sport { color:var(--cat-sport); }
+.cat-sensor { color:var(--cat-sensor); }
+.cat-bluetooth { color:var(--cat-bluetooth); }
+.cat-system { color:var(--cat-system); }
+.cat-flash { color:var(--cat-flash); }
+.cat-algorithm { color:var(--cat-algorithm); }
+.cat-default { color:var(--cat-default); }
+.bg-cat-sport { background:var(--cat-sport); }
+.bg-cat-sensor { background:var(--cat-sensor); }
+.bg-cat-bluetooth { background:var(--cat-bluetooth); }
+.bg-cat-system { background:var(--cat-system); }
+.bg-cat-flash { background:var(--cat-flash); }
+.bg-cat-algorithm { background:var(--cat-algorithm); }
+.bg-cat-default { background:var(--cat-default); }
+.border-cat-sport { border-color:var(--cat-sport); }
+.border-cat-sensor { border-color:var(--cat-sensor); }
+.border-cat-bluetooth { border-color:var(--cat-bluetooth); }
+.border-cat-system { border-color:var(--cat-system); }
+.border-cat-flash { border-color:var(--cat-flash); }
+.border-cat-algorithm { border-color:var(--cat-algorithm); }
+.border-cat-default { border-color:var(--cat-default); }
+
+/* ─── Responsive ─── */
+@media (max-width:900px) {
+  .sidebar { width:220px; min-width:220px; }
+  .flow-panel { display:none; }
+}
+@media (max-width:640px) {
+  .sidebar { width:200px; min-width:200px; }
+  .stats-bar { display:none; }
+}
+</style>
+</head>
+<body>
+
+<div class="app">
+  <!-- Header -->
+  <header class="header">
+    <div class="header-logo">RS Log Analyzer <span>v1.0</span></div>
+    <div class="header-actions">
+      <button class="btn" onclick="showProtocolModal()">Protocol</button>
+      <button class="btn" onclick="showPluginModal()">示例插件</button>
+      <button class="btn btn-accent" onclick="document.getElementById('pluginInput').click()">加载插件</button>
+      <button class="btn btn-accent" onclick="document.getElementById('logInput').click()">导入日志</button>
+    </div>
+    <input type="file" id="pluginInput" accept=".json" style="display:none" multiple>
+    <input type="file" id="logInput" accept=".txt,.log" style="display:none">
+  </header>
+
+  <div class="main">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="sidebar-section">
+        <div class="sidebar-title">Plugin</div>
+        <div id="pluginInfo">
+          <div class="plugin-empty">
+            <span class="icon">PLUGIN</span>
+            点击"加载插件"导入 JSON 配置<br>
+            或点击"示例插件"查看格式
+          </div>
+        </div>
+      </div>
+      <div class="sidebar-section">
+        <div class="sidebar-title">Modules</div>
+        <div class="module-actions">
+          <button class="btn btn-sm" onclick="selectAllModules()">全选</button>
+          <button class="btn btn-sm" onclick="deselectAllModules()">全不选</button>
+          <button class="btn btn-sm" onclick="invertModuleSelection()">反选</button>
+        </div>
+        <div class="module-list" id="moduleList">
+          <div class="plugin-empty" style="margin-top:8px">
+            加载插件后显示模块列表
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Content -->
+    <div class="content">
+      <div class="toolbar">
+        <div class="search-box">
+          <span class="search-icon">/</span>
+          <input type="text" id="searchInput" placeholder="搜索日志内容..." autocomplete="off">
+        </div>
+        <div class="stats-bar">
+          <span>总计 <span class="stat-value" id="statTotal">0</span></span>
+          <span>显示 <span class="stat-value stat-accent" id="statShown">0</span></span>
+          <span>匹配 <span class="stat-value" id="statMatched" style="color:var(--accent)">0</span></span>
+        </div>
+        <button class="btn btn-sm" onclick="clearLogs()">清空</button>
+        <button class="btn btn-sm" onclick="exportFiltered()">导出</button>
+      </div>
+      <div class="log-container" id="logContainer">
+        <div class="empty-state">
+          <div class="empty-icon">LOG</div>
+          <div class="empty-title">等待导入日志</div>
+          <div class="empty-desc">
+            1. 先加载插件 JSON 配置文件<br>
+            2. 再导入 TXT 日志文件<br>
+            3. 工具将自动解析并按模块分类显示
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Flow Panel -->
+    <aside class="flow-panel" id="flowPanel" style="display:none">
+      <div class="flow-header">
+        <div class="flow-title">Flow Timeline</div>
+      </div>
+      <div class="flow-list" id="flowList"></div>
+    </aside>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<!-- Modal -->
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="modalTitle">Modal</div>
+      <button class="modal-close" onclick="closeModal()">&#x2715;</button>
+    </div>
+    <div class="modal-body" id="modalBody"></div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal()">关闭</button>
+      <button class="btn btn-accent" id="modalAction" style="display:none">复制</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════
+// State
+// ═══════════════════════════════════════════
+let plugins = [];
+let logEntries = [];
+let activeModuleIds = new Set();
+let searchQuery = '';
+let collapsedModules = new Set();
+let lineMatchCache = new Map();
+
+// ═══════════════════════════════════════════
+// Plugin Loading
+// ═══════════════════════════════════════════
+document.getElementById('pluginInput').addEventListener('change', async (e) => {
+  const files = Array.from(e.target.files);
+  for (const file of files) {
+    try {
+      const text = await file.text();
+      const json = JSON.parse(text);
+      if (!json.meta || !json.modules) {
+        toast('无效的插件格式: ' + file.name);
+        continue;
+      }
+      // Pre-compile regexes
+      json.modules.forEach(mod => {
+        mod._compiledPatterns = mod.patterns.map(p => {
+          try {
+            return { ...p, regex: new RegExp(p.match, 'i'), varRegexes: p.variables ? p.variables.map(v => ({ ...v, regex: new RegExp(v.extract, 'i') })) : [] };
+          } catch (err) {
+            console.warn('Bad regex in pattern:', p.id, err);
+            return null;
+          }
+        }).filter(Boolean);
+      });
+      if (json.flows) {
+        json.flows.forEach(step => {
+          const pat = json.modules.flatMap(m => m._compiledPatterns).find(p => p.id === step.pattern);
+          step._regex = pat ? pat.regex : null;
+        });
+      }
+      plugins.push(json);
+      toast('已加载插件: ' + json.meta.name);
+    } catch (err) {
+      toast('解析失败: ' + file.name + ' - ' + err.message);
+    }
+  }
+  renderPluginInfo();
+  renderModuleList();
+  if (logEntries.length > 0) reprocessLogs();
+  e.target.value = '';
+});
+
+// ═══════════════════════════════════════════
+// Log Import
+// ═══════════════════════════════════════════
+document.getElementById('logInput').addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const text = await file.text();
+  const lines = text.split(/\r?\n/);
+  logEntries = lines.map((line, i) => ({
+    lineNum: i + 1,
+    raw: line,
+    moduleId: null,
+    patternId: null,
+    variables: {},
+    category: 'default'
+  }));
+  if (plugins.length > 0) reprocessLogs();
+  else renderLogs();
+  toast('已导入 ' + logEntries.length + ' 行日志');
+  e.target.value = '';
+});
+
+// ═══════════════════════════════════════════
+// Log Processing
+// ═══════════════════════════════════════════
+function reprocessLogs() {
+  lineMatchCache.clear();
+  logEntries.forEach(entry => {
+    entry.moduleId = null;
+    entry.patternId = null;
+    entry.variables = {};
+    entry.category = 'default';
+  });
+  for (const plugin of plugins) {
+    for (const mod of plugin.modules) {
+      for (const entry of logEntries) {
+        if (entry.moduleId) continue;
+        for (const pat of mod._compiledPatterns) {
+          const m = entry.raw.match(pat.regex);
+          if (m) {
+            entry.moduleId = mod.id;
+            entry.patternId = pat.id;
+            entry.category = mod.category || 'default';
+            if (pat.variables) {
+              pat.variables.forEach((v, i) => {
+                if (m[i + 1] !== undefined) entry.variables[v.name] = m[i + 1];
+              });
+            }
+            break;
+          }
+        }
+      }
+    }
+  }
+  renderModuleList();
+  renderLogs();
+  renderFlow();
+}
+
+// ═══════════════════════════════════════════
+// Rendering: Plugin Info
+// ═══════════════════════════════════════════
+function renderPluginInfo() {
+  const el = document.getElementById('pluginInfo');
+  if (plugins.length === 0) {
+    el.innerHTML = `<div class="plugin-empty"><span class="icon">PLUGIN</span>点击"加载插件"导入 JSON 配置<br>或点击"示例插件"查看格式</div>`;
+    return;
+  }
+  el.innerHTML = plugins.map(p => `
+    <div class="plugin-info" style="margin-bottom:8px">
+      <div class="plugin-name">${esc(p.meta.name)}</div>
+      <div class="plugin-meta">v${esc(p.meta.version)} ${p.meta.author ? '· ' + esc(p.meta.author) : ''}</div>
+      ${p.meta.description ? `<div class="plugin-desc">${esc(p.meta.description)}</div>` : ''}
+      <div class="plugin-meta" style="margin-top:4px">${p.modules.length} modules · ${p.modules.reduce((s,m) => s + m.patterns.length, 0)} patterns</div>
+    </div>
+  `).join('');
+}
+
+// ═══════════════════════════════════════════
+// Rendering: Module List
+// ═══════════════════════════════════════════
+function renderModuleList() {
+  const el = document.getElementById('moduleList');
+  if (plugins.length === 0) {
+    el.innerHTML = `<div class="plugin-empty" style="margin-top:8px">加载插件后显示模块列表</div>`;
+    return;
+  }
+  const allModules = plugins.flatMap(p => p.modules);
+  // Count entries per module
+  const counts = {};
+  logEntries.forEach(e => {
+    if (e.moduleId) counts[e.moduleId] = (counts[e.moduleId] || 0) + 1;
+  });
+  if (activeModuleIds.size === 0 && allModules.length > 0) {
+    allModules.forEach(m => activeModuleIds.add(m.id));
+  }
+  el.innerHTML = allModules.map(mod => {
+    const active = activeModuleIds.has(mod.id);
+    const count = counts[mod.id] || 0;
+    const catClass = 'bg-cat-' + (mod.category || 'default');
+    return `
+      <div class="module-item ${active ? 'active' : ''}" data-module="${esc(mod.id)}" onclick="toggleModule('${esc(mod.id)}')">
+        <div class="module-check">${active ? '&#x2713;' : ''}</div>
+        <div class="module-dot ${catClass}"></div>
+        <div class="module-name">${esc(mod.icon || '')} ${esc(mod.name)}</div>
+        <div class="module-count">${count}</div>
+      </div>
+    `;
+  }).join('');
+}
+
+function toggleModule(id) {
+  if (activeModuleIds.has(id)) activeModuleIds.delete(id);
+  else activeModuleIds.add(id);
+  renderModuleList();
+  renderLogs();
+  renderFlow();
+}
+function selectAllModules() {
+  plugins.flatMap(p => p.modules).forEach(m => activeModuleIds.add(m.id));
+  renderModuleList(); renderLogs(); renderFlow();
+}
+function deselectAllModules() {
+  activeModuleIds.clear();
+  renderModuleList(); renderLogs(); renderFlow();
+}
+function invertModuleSelection() {
+  const all = plugins.flatMap(p => p.modules).map(m => m.id);
+  all.forEach(id => { if (activeModuleIds.has(id)) activeModuleIds.delete(id); else activeModuleIds.add(id); });
+  renderModuleList(); renderLogs(); renderFlow();
+}
+
+// ═══════════════════════════════════════════
+// Rendering: Logs
+// ═══════════════════════════════════════════
+function renderLogs() {
+  const container = document.getElementById('logContainer');
+  if (logEntries.length === 0) {
+    container.innerHTML = `<div class="empty-state"><div class="empty-icon">LOG</div><div class="empty-title">等待导入日志</div><div class="empty-desc">1. 先加载插件 JSON 配置文件<br>2. 冀导入 TXT 日志文件<br>3. 工具将自动解析并按模块分类显示</div></div>`;
+    updateStats(0, 0, 0);
+    return;
+  }
+  const sq = searchQuery.toLowerCase();
+  let filtered = logEntries;
+  if (activeModuleIds.size > 0) {
+    filtered = filtered.filter(e => !e.moduleId || activeModuleIds.has(e.moduleId));
+  }
+  let matchCount = 0;
+  if (sq) {
+    filtered = filtered.filter(e => {
+      const hit = e.raw.toLowerCase().includes(sq);
+      if (hit) matchCount++;
+      return hit;
+    });
+  }
+  updateStats(logEntries.length, filtered.length, sq ? matchCount : 0);
+
+  // Group by module
+  const groups = [];
+  let currentGroup = null;
+  for (const entry of filtered) {
+    const mid = entry.moduleId || '__unmatched__';
+    if (!currentGroup || currentGroup.moduleId !== mid) {
+      currentGroup = { moduleId: mid, entries: [], category: entry.category, moduleName: getModuleName(mid) };
+      groups.push(currentGroup);
+    }
+    currentGroup.entries.push(entry);
+  }
+
+  const fragment = document.createDocumentFragment();
+  for (const group of groups) {
+    if (groups.length > 1) {
+      const sep = document.createElement('div');
+      sep.className = 'module-separator';
+      const catCls = 'bg-cat-' + group.category;
+      const count = group.entries.length;
+      const isCollapsed = collapsedModules.has(group.moduleId);
+      sep.innerHTML = `
+        <div class="sep-dot ${catCls}"></div>
+        <span class="sep-name">${esc(group.moduleName)}</span>
+        <span class="sep-count">${count} lines</span>
+        <span class="sep-toggle" data-group="${esc(group.moduleId)}">${isCollapsed ? '[+]' : '[-]'}</span>
+      `;
+      sep.querySelector('.sep-toggle').addEventListener('click', () => {
+        if (collapsedModules.has(group.moduleId)) collapsedModules.delete(group.moduleId);
+        else collapsedModules.add(group.moduleId);
+        renderLogs();
+      });
+      fragment.appendChild(sep);
+      if (isCollapsed) continue;
+    }
+    for (const entry of group.entries) {
+      const line = document.createElement('div');
+      const catCls = 'border-cat-' + entry.category;
+      const dotCls = 'bg-cat-' + entry.category;
+      let text = esc(entry.raw);
+      if (sq) {
+        text = highlightText(text, esc(searchQuery));
+      }
+      if (Object.keys(entry.variables).length > 0 && !sq) {
+        text = highlightVariables(text, entry);
+      }
+      line.className = 'log-line ' + catCls;
+      line.innerHTML = `
+        <span class="log-line-num">${entry.lineNum}</span>
+        <span class="log-line-cat ${dotCls}"></span>
+        <span class="log-line-text">${text}</span>
+      `;
+      fragment.appendChild(line);
+    }
+  }
+  container.innerHTML = '';
+  container.appendChild(fragment);
+}
+
+function highlightText(html, queryEsc) {
+  const re = new RegExp('(' + escapeRegExp(queryEsc) + ')', 'gi');
+  return html.replace(re, '<span class="match-hl">$1</span>');
+}
+
+function highlightVariables(html, entry) {
+  // Highlight extracted variable values in the log text
+  let result = html;
+  for (const [name, value] of Object.entries(entry.variables)) {
+    const valEsc = esc(String(value));
+    // Only highlight if value is meaningful (>0 or non-empty)
+    if (valEsc && valEsc !== '0') {
+      const re = new RegExp('(' + escapeRegExp(valEsc) + ')', 'g');
+      result = result.replace(re, '<span class="var-hl">$1</span>');
+    }
+  }
+  return result;
+}
+
+function getModuleName(moduleId) {
+  if (moduleId === '__unmatched__') return 'Other';
+  for (const p of plugins) {
+    const m = p.modules.find(m => m.id === moduleId);
+    if (m) return (m.icon || '') + ' ' + m.name;
+  }
+  return moduleId;
+}
+
+function updateStats(total, shown, matched) {
+  document.getElementById('statTotal').textContent = total;
+  document.getElementById('statShown').textContent = shown;
+  document.getElementById('statMatched').textContent = matched;
+}
+
+// ═══════════════════════════════════════════
+// Rendering: Flow
+// ═══════════════════════════════════════════
+function renderFlow() {
+  const panel = document.getElementById('flowPanel');
+  const list = document.getElementById('flowList');
+  // Find first plugin with flows
+  const plugin = plugins.find(p => p.flows && p.flows.length > 0);
+  if (!plugin) { panel.style.display = 'none'; return; }
+  panel.style.display = '';
+
+  // Check which flow steps are found
+  const foundSteps = new Map();
+  for (const entry of logEntries) {
+    for (const step of plugin.flows) {
+      if (step._regex && step._regex.test(entry.raw)) {
+        if (!foundSteps.has(step.id)) {
+          foundSteps.set(step.id, { lineNum: entry.lineNum, text: entry.raw.trim().substring(0, 60) });
+        }
+      }
+    }
+  }
+
+  list.innerHTML = plugin.flows.map((step, i) => {
+    const found = foundSteps.get(step.id);
+    const dotCls = found ? 'found' : 'not-found';
+    return `
+      <div class="flow-step ${found ? 'found' : ''}">
+        <div class="flow-dot ${dotCls}">${i + 1}</div>
+        <div class="flow-info">
+          <div class="flow-name">${esc(step.name)}</div>
+          ${step.description ? `<div class="flow-detail">${esc(step.description)}</div>` : ''}
+          ${found ? `<div class="flow-line-ref" onclick="scrollToLine(${found.lineNum})">Line ${found.lineNum}: ${esc(found.text)}...</div>` : '<div class="flow-detail" style="color:var(--text-muted)">Not found</div>'}
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function scrollToLine(lineNum) {
+  const container = document.getElementById('logContainer');
+  const lines = container.querySelectorAll('.log-line');
+  for (const line of lines) {
+    const numEl = line.querySelector('.log-line-num');
+    if (numEl && parseInt(numEl.textContent) === lineNum) {
+      line.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      line.style.background = 'rgba(232,197,71,.15)';
+      setTimeout(() => { line.style.background = ''; }, 2000);
+      break;
+    }
+  }
+}
+
+// ═══════════════════════════════════════════
+// Search
+// ═══════════════════════════════════════════
+let searchTimeout;
+document.getElementById('searchInput').addEventListener('input', (e) => {
+  clearTimeout(searchTimeout);
+  searchTimeout = setTimeout(() => {
+    searchQuery = e.target.value.trim();
+    renderLogs();
+  }, 150);
+});
+
+// ═══════════════════════════════════════════
+// Actions
+// ═══════════════════════════════════════════
+function clearLogs() {
+  logEntries = [];
+  lineMatchCache.clear();
+  renderLogs();
+  renderModuleList();
+  renderFlow();
+  toast('日志已清空');
+}
+
+function exportFiltered() {
+  if (logEntries.length === 0) { toast('没有日志可导出'); return; }
+  const sq = searchQuery.toLowerCase();
+  let filtered = logEntries;
+  if (activeModuleIds.size > 0) filtered = filtered.filter(e => !e.moduleId || activeModuleIds.has(e.moduleId));
+  if (sq) filtered = filtered.filter(e => e.raw.toLowerCase().includes(sq));
+  const text = filtered.map(e => e.raw).join('\n');
+  const blob = new Blob([text], { type: 'text/plain' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'filtered_log_' + Date.now() + '.txt';
+  a.click();
+  toast('已导出 ' + filtered.length + ' 行');
+}
+
+// ═══════════════════════════════════════════
+// Modals
+// ═══════════════════════════════════════════
+function showModal(title, bodyHtml, actionText, actionFn) {
+  document.getElementById('modalTitle').textContent = title;
+  document.getElementById('modalBody').innerHTML = bodyHtml;
+  const actionBtn = document.getElementById('modalAction');
+  if (actionText) {
+    actionBtn.style.display = '';
+    actionBtn.textContent = actionText;
+    actionBtn.onclick = actionFn;
+  } else {
+    actionBtn.style.display = 'none';
+  }
+  document.getElementById('modalOverlay').classList.add('active');
+}
+function closeModal() {
+  document.getElementById('modalOverlay').classList.remove('active');
+}
+document.getElementById('modalOverlay').addEventListener('click', (e) => {
+  if (e.target === e.currentTarget) closeModal();
+});
+
+function showProtocolModal() {
+  showModal('JSON 协议规范 v1.0', `<pre>${esc(PROTOCOL_SPEC)}</pre>`, '复制', () => {
+    navigator.clipboard.writeText(PROTOCOL_SPEC);
+    toast('已复制协议规范');
+  });
+}
+
+function showPluginModal() {
+  showModal('示例插件: Running Sport', `<pre>${esc(EXAMPLE_PLUGIN)}</pre>`, '下载 JSON', () => {
+    const blob = new Blob([EXAMPLE_PLUGIN], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'running_sport_analyzer.json';
+    a.click();
+    toast('已下载示例插件');
+  });
+}
+
+// ═══════════════════════════════════════════
+// Utilities
+// ═══════════════════════════════════════════
+function esc(str) {
+  const d = document.createElement('div');
+  d.textContent = str;
+  return d.innerHTML;
+}
+function escapeRegExp(s) {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(el._timer);
+  el._timer = setTimeout(() => el.classList.remove('show'), 2500);
+}
+
+// ═══════════════════════════════════════════
+// Protocol Spec (embedded)
+// ═══════════════════════════════════════════
+const PROTOCOL_SPEC = `{
+  "_protocol": "rs-log-analyzer-plugin-v1.0",
+  "_description": "日志分析插件 JSON 格式规范",
+
+  "meta": {
+    "name": "插件名称",
+    "version": "1.0.0",
+    "author": "作者",
+    "description": "功能描述"
+  },
+
+  "modules": [
+    {
+      "id": "唯一标识 (snake_case)",
+      "name": "显示名称",
+      "icon": "可选 emoji 图标",
+      "category": "颜色分类: sport|sensor|bluetooth|system|flash|algorithm",
+      "description": "模块说明",
+
+      "patterns": [
+        {
+          "id": "pattern_唯一ID",
+          "match": "正则表达式，用捕获组提取变量",
+          "description": "匹配说明",
+          "variables": [
+            {
+              "name": "变量名",
+              "extract": "从 match 捕获组引用，如 \\\\1",
+              "type": "number|string|boolean",
+              "unit": "可选单位"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+
+  "flows": [
+    {
+      "id": "step_1",
+      "name": "流程步骤名",
+      "pattern": "对应的 pattern id",
+      "description": "步骤说明"
+    }
+  ]
+}
+
+// 使用说明:
+// 1. 每行日志按 modules[].patterns[] 顺序匹配，首个命中即停止
+// 2. variables 从正则捕获组提取 (group 1 = variables[0])
+// 3. category 决定显示颜色
+// 4. flows 用于可视化关键流程是否执行`;
+
+// ═══════════════════════════════════════════
+// Example Plugin (Running Sport)
+// ═══════════════════════════════════════════
+const EXAMPLE_PLUGIN = `{
+  "meta": {
+    "name": "Running Sport Analyzer",
+    "version": "1.0.0",
+    "author": "RS Team",
+    "description": "户外跑步运动模块日志分析 — 覆盖初始化、启停暂停、数据上报、算法回调、TWS同步、Flash存储等关键路径"
+  },
+  "modules": [
+    {
+      "id": "sport_lifecycle",
+      "name": "运动生命周期",
+      "icon": "RUN",
+      "category": "sport",
+      "description": "运动初始化、启动、停止、暂停、恢复的核心流程",
+      "patterns": [
+        {
+          "id": "sport_init",
+          "match": "outdoor_run_init",
+          "description": "运动模块初始化",
+          "variables": []
+        },
+        {
+          "id": "sport_start",
+          "match": "outdoor_run_start, start_time=(\\\\d+)",
+          "description": "运动启动",
+          "variables": [
+            { "name": "start_time_ms", "extract": "\\\\1", "type": "number", "unit": "ms" }
+          ]
+        },
+        {
+          "id": "sport_pause",
+          "match": "outdoor_run_pause: paused=true",
+          "description": "运动暂停",
+          "variables": []
+        },
+        {
+          "id": "sport_resume",
+          "match": "outdoor_run_resume: paused=false, total_pause=(\\\\d+) ms",
+          "description": "运动恢复",
+          "variables": [
+            { "name": "total_pause_ms", "extract": "\\\\1", "type": "number", "unit": "ms" }
+          ]
+        },
+        {
+          "id": "sport_pause_duration",
+          "match": "Pause duration: (\\\\d+) ms, total pause: (\\\\d+) ms",
+          "description": "暂停时长统计",
+          "variables": [
+            { "name": "pause_ms", "extract": "\\\\1", "type": "number", "unit": "ms" },
+            { "name": "total_pause_ms", "extract": "\\\\2", "type": "number", "unit": "ms" }
+          ]
+        },
+        {
+          "id": "sport_pause_timeout",
+          "match": "Pause timeout",
+          "description": "暂停超时自动停止",
+          "variables": []
+        },
+        {
+          "id": "sport_invalid",
+          "match": "Invalid sport: distance=(\\\\d+)m",
+          "description": "无效运动检测",
+          "variables": [
+            { "name": "distance_m", "extract": "\\\\1", "type": "number", "unit": "m" }
+          ]
+        },
+        {
+          "id": "sport_stop_done",
+          "match": "outdoor_run_stop done",
+          "description": "运动停止完成",
+          "variables": []
+        }
+      ]
+    },
+    {
+      "id": "sport_data",
+      "name": "运动数据上报",
+      "icon": "DATA",
+      "category": "sport",
+      "description": "实时数据上报和运动总结",
+      "patterns": [
+        {
+          "id": "sport_summary",
+          "match": "Sports Summary: dur=(\\\\d+), dist=(\\\\d+), steps=(\\\\d+), hr_avg=(\\\\d+), vo2max=(\\\\d+)",
+          "description": "运动总结数据",
+          "variables": [
+            { "name": "duration_sec", "extract": "\\\\1", "type": "number", "unit": "s" },
+            { "name": "distance_m", "extract": "\\\\2", "type": "number", "unit": "m" },
+            { "name": "steps", "extract": "\\\\3", "type": "number" },
+            { "name": "hr_avg", "extract": "\\\\4", "type": "number", "unit": "bpm" },
+            { "name": "vo2max", "extract": "\\\\5", "type": "number" }
+          ]
+        },
+        {
+          "id": "sport_duration",
+          "match": "Sports duration: total=(\\\\d+) ms, pause=(\\\\d+) ms, actual=(\\\\d+) sec",
+          "description": "运动时长计算",
+          "variables": [
+            { "name": "total_ms", "extract": "\\\\1", "type": "number", "unit": "ms" },
+            { "name": "pause_ms", "extract": "\\\\2", "type": "number", "unit": "ms" },
+            { "name": "actual_sec", "extract": "\\\\3", "type": "number", "unit": "s" }
+          ]
+        },
+        {
+          "id": "main_info",
+          "match": "Main Info: steps=(\\\\d+), dist=(\\\\d+), cal=(\\\\d+), pace=(\\\\d+), hr=(\\\\d+)",
+          "description": "实时运动数据",
+          "variables": [
+            { "name": "steps", "extract": "\\\\1", "type": "number" },
+            { "name": "distance_m", "extract": "\\\\2", "type": "number", "unit": "m" },
+            { "name": "calories", "extract": "\\\\3", "type": "number", "unit": "kcal" },
+            { "name": "pace", "extract": "\\\\4", "type": "number" },
+            { "name": "heart_rate", "extract": "\\\\5", "type": "number", "unit": "bpm" }
+          ]
+        },
+        {
+          "id": "sport_summary_log",
+          "match": "\\\\[(?:Sport|SPORT)\\\\] Summary: dur=(\\\\d+)s, steps=(\\\\d+), dist=(\\\\d+)m, cal=(\\\\d+), hr=(\\\\d+)",
+          "description": "周期汇总日志 (每10秒)",
+          "variables": [
+            { "name": "duration_sec", "extract": "\\\\1", "type": "number", "unit": "s" },
+            { "name": "steps", "extract": "\\\\2", "type": "number" },
+            { "name": "distance_m", "extract": "\\\\3", "type": "number", "unit": "m" },
+            { "name": "calories", "extract": "\\\\4", "type": "number", "unit": "kcal" },
+            { "name": "heart_rate", "extract": "\\\\5", "type": "number", "unit": "bpm" }
+          ]
+        },
+        {
+          "id": "initial_report",
+          "match": "Initial report sent",
+          "description": "运动开始立即上报",
+          "variables": []
+        }
+      ]
+    },
+    {
+      "id": "sport_segment",
+      "name": "公里分段",
+      "icon": "KM",
+      "category": "sport",
+      "description": "每公里配速分段记录",
+      "patterns": [
+        {
+          "id": "segment_saved",
+          "match": "Segment (\\\\d+): dur=(\\\\d+)s, pace=(\\\\d+)",
+          "description": "公里分段保存",
+          "variables": [
+            { "name": "segment_index", "extract": "\\\\1", "type": "number" },
+            { "name": "duration_sec", "extract": "\\\\2", "type": "number", "unit": "s" },
+            { "name": "pace", "extract": "\\\\3", "type": "number" }
+          ]
+        },
+        {
+          "id": "final_segment",
+          "match": "Saved final segment: dur=(\\\\d+), dist=(\\\\d+), pace=(\\\\d+), hr=(\\\\d+), freq=(\\\\d+)",
+          "description": "最后一段保存",
+          "variables": [
+            { "name": "duration", "extract": "\\\\1", "type": "number" },
+            { "name": "distance", "extract": "\\\\2", "type": "number", "unit": "m" },
+            { "name": "pace", "extract": "\\\\3", "type": "number" },
+            { "name": "hr", "extract": "\\\\4", "type": "number", "unit": "bpm" },
+            { "name": "step_freq", "extract": "\\\\5", "type": "number" }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "sensor",
+      "name": "传感器管理",
+      "icon": "SENS",
+      "category": "sensor",
+      "description": "心率、血氧等传感器自动启停",
+      "patterns": [
+        {
+          "id": "hr_zone_cache",
+          "match": "HR zone cache: max_hr=(\\\\d+), zones=\\\\[(\\\\d+),(\\\\d+),(\\\\d+),(\\\\d+),(\\\\d+)\\\\]",
+          "description": "心率区间配置缓存",
+          "variables": [
+            { "name": "max_hr", "extract": "\\\\1", "type": "number", "unit": "bpm" },
+            { "name": "zone1", "extract": "\\\\2", "type": "number", "unit": "%" },
+            { "name": "zone2", "extract": "\\\\3", "type": "number", "unit": "%" },
+            { "name": "zone3", "extract": "\\\\4", "type": "number", "unit": "%" },
+            { "name": "zone4", "extract": "\\\\5", "type": "number", "unit": "%" },
+            { "name": "zone5", "extract": "\\\\6", "type": "number", "unit": "%" }
+          ]
+        },
+        {
+          "id": "hr_zone_default",
+          "match": "HR zone cache: using default",
+          "description": "使用默认心率区间",
+          "variables": []
+        },
+        {
+          "id": "hr_auto_enable",
+          "match": "Auto-enabling heart rate",
+          "description": "自动开启心率检测",
+          "variables": []
+        },
+        {
+          "id": "hr_auto_disable",
+          "match": "Auto-disabling heart rate",
+          "description": "自动关闭心率检测",
+          "variables": []
+        },
+        {
+          "id": "spo2_auto_enable",
+          "match": "Auto-enabling SpO2",
+          "description": "自动开启血氧检测",
+          "variables": []
+        },
+        {
+          "id": "spo2_auto_disable",
+          "match": "Auto-disabling SpO2",
+          "description": "自动关闭血氧检测",
+          "variables": []
+        }
+      ]
+    },
+    {
+      "id": "algorithm",
+      "name": "算法回调",
+      "icon": "ALGO",
+      "category": "algorithm",
+      "description": "运动算法输出: VO2Max、训练效果、恢复时间、步态数据、乳酸阈值",
+      "patterns": [
+        {
+          "id": "vo2max",
+          "match": "VO2Max: (\\\\d+) ml/kg/min",
+          "description": "最大摄氧量",
+          "variables": [
+            { "name": "vo2max", "extract": "\\\\1", "type": "number", "unit": "ml/kg/min" }
+          ]
+        },
+        {
+          "id": "training_effect",
+          "match": "Training Effect: aerobic=(\\\\d+), anaerobic=(\\\\d+)",
+          "description": "有氧/无氧训练效果",
+          "variables": [
+            { "name": "aerobic", "extract": "\\\\1", "type": "number" },
+            { "name": "anaerobic", "extract": "\\\\2", "type": "number" }
+          ]
+        },
+        {
+          "id": "recovery",
+          "match": "Recovery: hours=(\\\\d+), degree=(\\\\d+)",
+          "description": "恢复时间",
+          "variables": [
+            { "name": "hours", "extract": "\\\\1", "type": "number", "unit": "h" },
+            { "name": "degree", "extract": "\\\\2", "type": "number", "unit": "%" }
+          ]
+        },
+        {
+          "id": "recovery_from_fitness",
+          "match": "Recovery hours from SCL_FITNESS_INFO: (\\\\d+)",
+          "description": "从SCL获取恢复时间",
+          "variables": [
+            { "name": "hours", "extract": "\\\\1", "type": "number", "unit": "h" }
+          ]
+        },
+        {
+          "id": "running_gait",
+          "match": "Running Gait: ground=(\\\\d+)ms, flight=(\\\\d+)ms, vosc=(\\\\d+)cm",
+          "description": "跑步步态数据",
+          "variables": [
+            { "name": "ground_contact_ms", "extract": "\\\\1", "type": "number", "unit": "ms" },
+            { "name": "flight_time_ms", "extract": "\\\\2", "type": "number", "unit": "ms" },
+            { "name": "vertical_osc_cm", "extract": "\\\\3", "type": "number", "unit": "cm" }
+          ]
+        },
+        {
+          "id": "lactate_threshold",
+          "match": "Lactate Threshold: hr=(\\\\d+), pace=(\\\\d+)",
+          "description": "乳酸阈值",
+          "variables": [
+            { "name": "lt_hr", "extract": "\\\\1", "type": "number", "unit": "bpm" },
+            { "name": "lt_pace", "extract": "\\\\2", "type": "number" }
+          ]
+        },
+        {
+          "id": "extra_info",
+          "match": "Extra Info: max_freq=(\\\\d+)",
+          "description": "算法统计额外信息",
+          "variables": [
+            { "name": "max_step_freq", "extract": "\\\\1", "type": "number" }
+          ]
+        },
+        {
+          "id": "waiting_final",
+          "match": "Waiting for final data",
+          "description": "等待算法最终数据",
+          "variables": []
+        },
+        {
+          "id": "final_received",
+          "match": "Final data received: vo2max=(\\\\d+), train=(\\\\d+), recovery=(\\\\d+)",
+          "description": "最终数据已收到",
+          "variables": [
+            { "name": "vo2max_ready", "extract": "\\\\1", "type": "number" },
+            { "name": "train_ready", "extract": "\\\\2", "type": "number" },
+            { "name": "recovery_ready", "extract": "\\\\3", "type": "number" }
+          ]
+        },
+        {
+          "id": "final_timeout",
+          "match": "Final data wait timeout",
+          "description": "等待最终数据超时",
+          "variables": []
+        }
+      ]
+    },
+    {
+      "id": "baseline",
+      "name": "基准值管理",
+      "icon": "BASE",
+      "category": "system",
+      "description": "运动数据基准值设置（防止数据回退）",
+      "patterns": [
+        {
+          "id": "baseline_cache",
+          "match": "Cache ptr=(?:0x[\\\\da-fA-F]+|\\\\(nil\\\\)), steps=(\\\\d+), dist=(\\\\d+), cal=(\\\\d+)",
+          "description": "缓存数据读取",
+          "variables": [
+            { "name": "cache_steps", "extract": "\\\\1", "type": "number" },
+            { "name": "cache_dist", "extract": "\\\\2", "type": "number" },
+            { "name": "cache_cal", "extract": "\\\\3", "type": "number" }
+          ]
+        },
+        {
+          "id": "baseline_set",
+          "match": "Baselines (?:set|from daily cache): steps=(\\\\d+), dist=(\\\\d+), cal=(\\\\d+)",
+          "description": "基准值设置完成",
+          "variables": [
+            { "name": "steps_base", "extract": "\\\\1", "type": "number" },
+            { "name": "dist_base", "extract": "\\\\2", "type": "number" },
+            { "name": "cal_base", "extract": "\\\\3", "type": "number" }
+          ]
+        },
+        {
+          "id": "baseline_reset",
+          "match": "Baselines reset to 0",
+          "description": "基准值重置为0",
+          "variables": []
+        },
+        {
+          "id": "baseline_merged",
+          "match": "Baselines set: steps=(\\\\d+), dist=(\\\\d+), cal=(\\\\d+) \\\\(cache merged\\\\)",
+          "description": "基准值合并完成",
+          "variables": [
+            { "name": "steps", "extract": "\\\\1", "type": "number" },
+            { "name": "dist", "extract": "\\\\2", "type": "number" },
+            { "name": "cal", "extract": "\\\\3", "type": "number" }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "tws_sync",
+      "name": "TWS 同步",
+      "icon": "TWS",
+      "category": "bluetooth",
+      "description": "主从耳数据同步和角色切换",
+      "patterns": [
+        {
+          "id": "tws_resume",
+          "match": "Resume from TWS: ts=(\\\\d+), steps=(\\\\d+), dist=(\\\\d+)m, cal=(\\\\d+), paused=(\\\\d+)",
+          "description": "从TWS状态恢复运动",
+          "variables": [
+            { "name": "timestamp", "extract": "\\\\1", "type": "number" },
+            { "name": "steps", "extract": "\\\\2", "type": "number" },
+            { "name": "distance", "extract": "\\\\3", "type": "number", "unit": "m" },
+            { "name": "calories", "extract": "\\\\4", "type": "number" },
+            { "name": "paused", "extract": "\\\\5", "type": "number" }
+          ]
+        },
+        {
+          "id": "tws_resume_done",
+          "match": "Resume from TWS completed",
+          "description": "TWS恢复完成",
+          "variables": []
+        },
+        {
+          "id": "role_switch_lock",
+          "match": "Role switch locked",
+          "description": "主从切换已锁定",
+          "variables": []
+        },
+        {
+          "id": "role_switch_unlock",
+          "match": "Role switch unlocked",
+          "description": "主从切换已解锁",
+          "variables": []
+        },
+        {
+          "id": "role_switch_fail",
+          "match": "WARNING: Failed to lock role switch",
+          "description": "锁定主从切换失败",
+          "variables": []
+        }
+      ]
+    },
+    {
+      "id": "flash_storage",
+      "name": "Flash 存储",
+      "icon": "FLASH",
+      "category": "flash",
+      "description": "运动数据持久化和异步Flash操作",
+      "patterns": [
+        {
+          "id": "async_session_create",
+          "match": "Async session creation requested",
+          "description": "异步创建运动会话",
+          "variables": []
+        },
+        {
+          "id": "async_session_finish",
+          "match": "Async finish_sports_session message sent",
+          "description": "异步结束运动会话",
+          "variables": []
+        },
+        {
+          "id": "async_flush",
+          "match": "FLUSH_SAMPLEPOINT",
+          "description": "异步刷新采样点",
+          "variables": []
+        },
+        {
+          "id": "app_timestamp",
+          "match": "Using APP timestamp: start_time=(\\\\d+) ms",
+          "description": "使用APP传入的时间戳",
+          "variables": [
+            { "name": "timestamp_ms", "extract": "\\\\1", "type": "number", "unit": "ms" }
+          ]
+        },
+        {
+          "id": "fallback_timestamp",
+          "match": "WARNING: Using current time as fallback: start_time=(\\\\d+) ms",
+          "description": "回退使用当前时间",
+          "variables": [
+            { "name": "timestamp_ms", "extract": "\\\\1", "type": "number", "unit": "ms" }
+          ]
+        }
+      ]
+    }
+  ],
+  "flows": [
+    { "id": "step_1", "name": "1. Init", "pattern": "sport_init", "description": "模块初始化" },
+    { "id": "step_2", "name": "2. Start", "pattern": "sport_start", "description": "运动启动" },
+    { "id": "step_3", "name": "3. Baseline", "pattern": "baseline_set", "description": "基准值设置" },
+    { "id": "step_4", "name": "4. HR Zone", "pattern": "hr_zone_cache", "description": "心率区间缓存" },
+    { "id": "step_5", "name": "5. First Report", "pattern": "initial_report", "description": "首次数据上报" },
+    { "id": "step_6", "name": "6. Data Update", "pattern": "main_info", "description": "实时数据更新" },
+    { "id": "step_7", "name": "7. Pause/Resume", "pattern": "sport_pause", "description": "暂停/恢复" },
+    { "id": "step_8", "name": "8. Stop", "pattern": "sport_stop_done", "description": "运动停止" },
+    { "id": "step_9", "name": "9. Summary", "pattern": "sport_summary", "description": "运动总结" }
+  ]
+}`;
+
+// ═══════════════════════════════════════════
+// Init
+// ═══════════════════════════════════════════
+// Keyboard shortcuts
+document.addEventListener('keydown', (e) => {
+  if (e.key === '/' && document.activeElement.tagName !== 'INPUT') {
+    e.preventDefault();
+    document.getElementById('searchInput').focus();
+  }
+  if (e.key === 'Escape') {
+    closeModal();
+    document.getElementById('searchInput').blur();
+  }
+});
+</script>
+</body>
+</html>

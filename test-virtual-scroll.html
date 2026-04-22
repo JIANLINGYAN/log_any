@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>虚拟滚动性能测试</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+      background: #1a1a1a;
+      color: #fff;
+    }
+    .stats {
+      margin: 20px 0;
+      padding: 15px;
+      background: #2a2a2a;
+      border-radius: 8px;
+    }
+    .stat-item {
+      margin: 10px 0;
+      font-size: 16px;
+    }
+    .stat-value {
+      color: #4ade80;
+      font-weight: bold;
+      font-size: 20px;
+    }
+    button {
+      padding: 10px 20px;
+      margin: 5px;
+      background: #4ade80;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 14px;
+    }
+    button:hover {
+      background: #3dd66d;
+    }
+    .viewport {
+      height: 600px;
+      overflow-y: auto;
+      position: relative;
+      background: #0a0a0a;
+      border: 2px solid #333;
+      border-radius: 8px;
+    }
+    .spacer {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+    }
+    .container {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+    }
+    .line {
+      height: 26px;
+      line-height: 26px;
+      padding: 0 10px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      border-left: 3px solid #4ade80;
+      position: absolute;
+      left: 0;
+      right: 0;
+    }
+    .line:hover {
+      background: #2a2a2a;
+    }
+  </style>
+</head>
+<body>
+  <h1>🚀 虚拟滚动性能测试</h1>
+  
+  <div class="stats">
+    <div class="stat-item">总行数: <span class="stat-value" id="totalLines">0</span></div>
+    <div class="stat-item">DOM节点数: <span class="stat-value" id="domCount">0</span></div>
+    <div class="stat-item">渲染时间: <span class="stat-value" id="renderTime">0ms</span></div>
+    <div class="stat-item">内存占用: <span class="stat-value" id="memory">0MB</span></div>
+  </div>
+  
+  <div>
+    <button onclick="testVirtualScroll(1000)">测试 1,000 行</button>
+    <button onclick="testVirtualScroll(10000)">测试 10,000 行</button>
+    <button onclick="testVirtualScroll(100000)">测试 100,000 行</button>
+    <button onclick="testVirtualScroll(1000000)">测试 1,000,000 行</button>
+  </div>
+  
+  <div class="viewport" id="viewport">
+    <div class="spacer" id="spacer"></div>
+    <div class="container" id="container"></div>
+  </div>
+  
+  <script>
+    let items = [];
+    const ITEM_HEIGHT = 26;
+    const BUFFER_SIZE = 15;
+    
+    function testVirtualScroll(count) {
+      console.log(`开始测试 ${count} 行...`);
+      const startTime = performance.now();
+      
+      // 生成数据
+      items = Array.from({ length: count }, (_, i) => ({
+        lineNum: i + 1,
+        text: `Line ${i + 1}: This is a test log entry with some data - timestamp=${Date.now()}`
+      }));
+      
+      document.getElementById('totalLines').textContent = count.toLocaleString();
+      
+      // 设置占位高度
+      const spacer = document.getElementById('spacer');
+      spacer.style.height = `${count * ITEM_HEIGHT}px`;
+      
+      // 初始渲染
+      renderVisibleItems();
+      
+      const endTime = performance.now();
+      document.getElementById('renderTime').textContent = `${(endTime - startTime).toFixed(2)}ms`;
+      
+      updateStats();
+      
+      console.log(`测试完成！DOM节点数: ${document.querySelectorAll('.line').length}`);
+    }
+    
+    function renderVisibleItems() {
+      const viewport = document.getElementById('viewport');
+      const container = document.getElementById('container');
+      const scrollTop = viewport.scrollTop;
+      const viewportHeight = viewport.clientHeight;
+      
+      // 计算可见范围
+      const startIndex = Math.max(0, Math.floor(scrollTop / ITEM_HEIGHT) - BUFFER_SIZE);
+      const endIndex = Math.min(
+        items.length,
+        Math.ceil((scrollTop + viewportHeight) / ITEM_HEIGHT) + BUFFER_SIZE
+      );
+      
+      // 清空容器
+      container.innerHTML = '';
+      
+      // 设置容器位置
+      const offsetTop = startIndex * ITEM_HEIGHT;
+      container.style.transform = `translateY(${offsetTop}px)`;
+      
+      // 渲染可见项
+      for (let i = startIndex; i < endIndex; i++) {
+        const item = items[i];
+        const div = document.createElement('div');
+        div.className = 'line';
+        div.style.top = `${(i - startIndex) * ITEM_HEIGHT}px`;
+        div.textContent = `${item.lineNum}: ${item.text}`;
+        container.appendChild(div);
+      }
+      
+      updateDomCount();
+    }
+    
+    function updateDomCount() {
+      const count = document.querySelectorAll('.line').length;
+      document.getElementById('domCount').textContent = count;
+    }
+    
+    function updateStats() {
+      if (performance.memory) {
+        const memoryMB = (performance.memory.usedJSHeapSize / 1024 / 1024).toFixed(2);
+        document.getElementById('memory').textContent = `${memoryMB}MB`;
+      } else {
+        document.getElementById('memory').textContent = 'N/A';
+      }
+    }
+    
+    // 绑定滚动事件（带防抖）
+    let scrollTimeout;
+    document.getElementById('viewport').addEventListener('scroll', () => {
+      clearTimeout(scrollTimeout);
+      scrollTimeout = setTimeout(() => {
+        renderVisibleItems();
+      }, 16);
+    });
+    
+    // 定期更新统计
+    setInterval(updateStats, 1000);
+    
+    console.log('虚拟滚动测试页面已加载！点击按钮开始测试。');
+  </script>
+</body>
+</html>

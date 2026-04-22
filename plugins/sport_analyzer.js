@@ -1,0 +1,154 @@
+window.__PLUGIN_sport_analyzer = {
+  "meta": {
+    "name": "Running Sport Analyzer",
+    "version": "1.0.0",
+    "author": "RS Team",
+    "description": "户外跑步运动模块日志分析 — 覆盖初始化、启停暂停、数据上报、算法回调、TWS同步、Flash存储等关键路径"
+  },
+  "modules": [
+    {
+      "id": "sport_lifecycle",
+      "name": "运动生命周期",
+      "icon": "RUN",
+      "category": "sport",
+      "description": "运动初始化、启动、停止、暂停、恢复的核心流程",
+      "patterns": [
+        {
+          "id": "sport_init",
+          "match": "outdoor_run_init",
+          "description": "运动模块初始化"
+        },
+        {
+          "id": "sport_start",
+          "match": "outdoor_run_start, start_time=(\\d+)",
+          "description": "运动启动",
+          "variables": [
+            { "name": "start_time_ms", "extract": "\\1", "type": "number", "unit": "ms" }
+          ]
+        },
+        {
+          "id": "sport_pause",
+          "match": "outdoor_run_pause: paused=true",
+          "description": "运动暂停"
+        },
+        {
+          "id": "sport_resume",
+          "match": "outdoor_run_resume: paused=false, total_pause=(\\d+) ms",
+          "description": "运动恢复",
+          "variables": [
+            { "name": "total_pause_ms", "extract": "\\1", "type": "number", "unit": "ms" }
+          ]
+        },
+        {
+          "id": "sport_stop_done",
+          "match": "outdoor_run_stop done",
+          "description": "运动停止完成"
+        }
+      ]
+    },
+    {
+      "id": "sport_data",
+      "name": "运动数据上报",
+      "icon": "DATA",
+      "category": "sport",
+      "description": "实时数据上报和运动总结",
+      "patterns": [
+        {
+          "id": "sport_summary",
+          "match": "Sports Summary: dur=(\\d+), dist=(\\d+), steps=(\\d+), hr_avg=(\\d+), vo2max=(\\d+)",
+          "description": "运动总结数据",
+          "variables": [
+            { "name": "duration_sec", "extract": "\\1", "type": "number", "unit": "s" },
+            { "name": "distance_m", "extract": "\\2", "type": "number", "unit": "m" },
+            { "name": "steps", "extract": "\\3", "type": "number" },
+            { "name": "hr_avg", "extract": "\\4", "type": "number", "unit": "bpm" },
+            { "name": "vo2max", "extract": "\\5", "type": "number" }
+          ]
+        },
+        {
+          "id": "main_info",
+          "match": "Main Info: steps=(\\d+), dist=(\\d+), cal=(\\d+), pace=(\\d+), hr=(\\d+)",
+          "description": "实时运动数据",
+          "variables": [
+            { "name": "steps", "extract": "\\1", "type": "number" },
+            { "name": "distance_m", "extract": "\\2", "type": "number", "unit": "m" },
+            { "name": "calories", "extract": "\\3", "type": "number", "unit": "kcal" },
+            { "name": "pace", "extract": "\\4", "type": "number" },
+            { "name": "heart_rate", "extract": "\\5", "type": "number", "unit": "bpm" }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "sensor",
+      "name": "传感器管理",
+      "icon": "SENS",
+      "category": "sensor",
+      "description": "心率、血氧等传感器自动启停",
+      "patterns": [
+        {
+          "id": "hr_auto_enable",
+          "match": "Auto-enabling heart rate",
+          "description": "自动开启心率检测"
+        },
+        {
+          "id": "hr_auto_disable",
+          "match": "Auto-disabling heart rate",
+          "description": "自动关闭心率检测"
+        }
+      ]
+    },
+    {
+      "id": "algorithm",
+      "name": "算法回调",
+      "icon": "ALGO",
+      "category": "algorithm",
+      "description": "运动算法输出: VO2Max、训练效果、恢复时间",
+      "patterns": [
+        {
+          "id": "vo2max",
+          "match": "VO2Max: (\\d+) ml/kg/min",
+          "description": "最大摄氧量",
+          "variables": [
+            { "name": "vo2max", "extract": "\\1", "type": "number", "unit": "ml/kg/min" }
+          ]
+        },
+        {
+          "id": "training_effect",
+          "match": "Training Effect: aerobic=(\\d+), anaerobic=(\\d+)",
+          "description": "有氧/无氧训练效果",
+          "variables": [
+            { "name": "aerobic", "extract": "\\1", "type": "number" },
+            { "name": "anaerobic", "extract": "\\2", "type": "number" }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "tws_sync",
+      "name": "TWS同步",
+      "icon": "TWS",
+      "category": "tws",
+      "description": "TWS双耳数据同步",
+      "patterns": [
+        {
+          "id": "tws_sync",
+          "match": "TWS sync: left=(\\d+), right=(\\d+), diff=(\\d+) ms",
+          "description": "TWS同步延迟",
+          "variables": [
+            { "name": "left_ms", "extract": "\\1", "type": "number" },
+            { "name": "right_ms", "extract": "\\2", "type": "number" },
+            { "name": "diff_ms", "extract": "\\3", "type": "number" }
+          ]
+        }
+      ]
+    }
+  ],
+  "flows": [
+    { "id": "step_1", "name": "1. Init", "pattern": "sport_init", "description": "模块初始化" },
+    { "id": "step_2", "name": "2. Start", "pattern": "sport_start", "description": "运动启动" },
+    { "id": "step_3", "name": "3. Data Update", "pattern": "main_info", "description": "实时数据更新" },
+    { "id": "step_4", "name": "4. Stop", "pattern": "sport_stop_done", "description": "运动停止" },
+    { "id": "step_5", "name": "5. Summary", "pattern": "sport_summary", "description": "运动总结" }
+  ]
+};

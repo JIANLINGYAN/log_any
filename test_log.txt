@@ -1,0 +1,42 @@
+2024-01-15 10:00:01 [INFO] outdoor_run_init
+2024-01-15 10:00:02 [INFO] Cache ptr=0x1234, steps=0, dist=0, cal=0
+2024-01-15 10:00:02 [INFO] Baselines set: steps=0, dist=0, cal=0
+2024-01-15 10:00:03 [INFO] HR zone cache: max_hr=180, zones=[50,60,70,80,90]
+2024-01-15 10:00:03 [INFO] Auto-enabling heart rate
+2024-01-15 10:00:04 [INFO] outdoor_run_start, start_time=1705286404000
+2024-01-15 10:00:04 [INFO] Initial report sent
+2024-01-15 10:00:14 [INFO] Main Info: steps=120, dist=150, cal=12, pace=600, hr=135
+2024-01-15 10:00:24 [INFO] Main Info: steps=245, dist=310, cal=25, pace=580, hr=142
+2024-01-15 10:00:34 [INFO] Main Info: steps=368, dist=465, cal=38, pace=575, hr=148
+2024-01-15 10:00:44 [INFO] Main Info: steps=492, dist=620, cal=51, pace=570, hr=152
+2024-01-15 10:00:54 [INFO] Main Info: steps=615, dist=775, cal=64, pace=568, hr=155
+2024-01-15 10:01:04 [INFO] Main Info: steps=738, dist=930, cal=77, pace=565, hr=158
+2024-01-15 10:01:14 [INFO] Main Info: steps=862, dist=1085, cal=90, pace=562, hr=160
+2024-01-15 10:01:24 [INFO] Main Info: steps=985, dist=1240, cal=103, pace=560, hr=162
+2024-01-15 10:01:34 [INFO] Main Info: steps=1108, dist=1395, cal=116, pace=558, hr=164
+2024-01-15 10:01:44 [INFO] Main Info: steps=1232, dist=1550, cal=129, pace=556, hr=165
+2024-01-15 10:02:00 [INFO] outdoor_run_pause: paused=true
+2024-01-15 10:02:00 [INFO] Auto-disabling heart rate
+2024-01-15 10:02:30 [INFO] Pause duration: 30000 ms, total pause: 30000 ms
+2024-01-15 10:02:30 [INFO] outdoor_run_resume: paused=false, total_pause=30000 ms
+2024-01-15 10:02:30 [INFO] Auto-enabling heart rate
+2024-01-15 10:02:40 [INFO] Main Info: steps=1355, dist=1705, cal=142, pace=555, hr=163
+2024-01-15 10:02:50 [INFO] Main Info: steps=1478, dist=1860, cal=155, pace=553, hr=165
+2024-01-15 10:03:00 [INFO] Main Info: steps=1602, dist=2015, cal=168, pace=551, hr=167
+2024-01-15 10:03:10 [INFO] Segment 1: dur=186s, pace=558
+2024-01-15 10:03:10 [INFO] Main Info: steps=1725, dist=2170, cal=181, pace=550, hr=168
+2024-01-15 10:03:20 [INFO] Main Info: steps=1848, dist=2325, cal=194, pace=548, hr=170
+2024-01-15 10:03:30 [INFO] Main Info: steps=1972, dist=2480, cal=207, pace=547, hr=171
+2024-01-15 10:03:40 [INFO] Main Info: steps=2095, dist=2635, cal=220, pace=546, hr=172
+2024-01-15 10:03:50 [INFO] Main Info: steps=2218, dist=2790, cal=233, pace=545, hr=173
+2024-01-15 10:04:00 [INFO] outdoor_run_stop done
+2024-01-15 10:04:00 [INFO] Waiting for final data
+2024-01-15 10:04:01 [INFO] VO2Max: 45 ml/kg/min
+2024-01-15 10:04:01 [INFO] Training Effect: aerobic=3.2, anaerobic=1.8
+2024-01-15 10:04:01 [INFO] Recovery: hours=24, degree=85
+2024-01-15 10:04:01 [INFO] Final data received: vo2max=1, train=1, recovery=1
+2024-01-15 10:04:01 [INFO] Sports Summary: dur=237, dist=2790, steps=2218, hr_avg=162, vo2max=45
+2024-01-15 10:04:01 [INFO] Sports duration: total=240000 ms, pause=30000 ms, actual=210 sec
+2024-01-15 10:04:01 [INFO] Extra Info: max_freq=185
+2024-01-15 10:04:01 [INFO] Saved final segment: dur=51, dist=620, pace=545, hr=173, freq=185
+2024-01-15 10:04:02 [INFO] Async finish_sports_session message sent

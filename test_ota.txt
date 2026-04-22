@@ -1,0 +1,10 @@
+[2024-01-15 10:00:01] [INFO] System initialized
+[2024-01-15 10:00:02] [INFO] OTA status: checking update
+[2024-01-15 10:00:03] [INFO] BLE connected
+[2024-01-15 10:00:04] [INFO] OTA status: downloading firmware v2.1.0
+[2024-01-15 10:00:05] [INFO] Battery level: 85%
+[2024-01-15 10:00:06] [INFO] OTA status: verification passed
+[2024-01-15 10:00:07] [INFO] TWS sync: peer device found
+[2024-01-15 10:00:08] [INFO] Firmware version: 2.0.5
+[2024-01-15 10:00:09] [INFO] OTA status: update completed successfully
+[2024-01-15 10:00:10] [INFO] System ready

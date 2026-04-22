@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RS Log Analyzer v2.0</title>
+  
+  <!-- 样式 -->
+  <link rel="stylesheet" href="css/styles.css">
+  
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+</head>
+<body>
+
+<div class="app">
+  <!-- Header -->
+  <header class="header">
+    <div class="header-logo">RS Log Analyzer <span>v2.0</span></div>
+    <div class="header-actions">
+      <button class="btn" onclick="toggleTheme()" id="themeBtn" title="切换主题">🌓 主题</button>
+      <button class="btn" onclick="showPluginManager()" id="pluginManagerBtn" title="插件管理"> 插件</button>
+      <button class="btn" onclick="document.getElementById('logInput').click()">导入日志</button>
+    </div>
+    <input type="file" id="logInput" accept=".txt,.log" style="display:none">
+  </header>
+
+  <div class="main">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="sidebar-section">
+        <div class="sidebar-title">Plugin</div>
+        <div id="pluginInfo">
+          <div class="plugin-empty">
+            <span class="icon">PLUGIN</span>
+            点击"加载插件"导入 JSON 配置<br>
+            或点击"示例插件"查看格式
+          </div>
+        </div>
+      </div>
+      <div class="sidebar-section">
+        <div class="sidebar-title">Modules</div>
+        <div class="module-actions">
+          <button class="btn btn-sm" onclick="selectAllModules()">全选</button>
+          <button class="btn btn-sm" onclick="deselectAllModules()">全不选</button>
+          <button class="btn btn-sm" onclick="invertModuleSelection()">反选</button>
+        </div>
+        <div class="module-list" id="moduleList">
+          <div class="plugin-empty" style="margin-top:8px">
+            加载插件后显示模块列表
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Content -->
+    <div class="content">
+      <div class="toolbar">
+        <div class="search-box">
+          <span class="search-icon">/</span>
+          <input type="text" id="searchInput" placeholder="搜索日志内容..." autocomplete="off">
+        </div>
+        <div class="stats-bar">
+          <span>总计 <span class="stat-value" id="statTotal">0</span></span>
+          <span>显示 <span class="stat-value stat-accent" id="statShown">0</span></span>
+          <span>匹配 <span class="stat-value" id="statMatched" style="color:var(--accent)">0</span></span>
+        </div>
+        <button class="btn btn-sm" onclick="clearLogs()">清空</button>
+        <button class="btn btn-sm" onclick="exportFiltered()">导出</button>
+      </div>
+      
+      <!-- Virtual Scroll Container -->
+      <div class="log-viewport" id="logViewport">
+        <div class="log-spacer" id="logSpacer"></div>
+        <div class="log-container" id="logContainer">
+          <div class="empty-state">
+            <div class="empty-icon">LOG</div>
+            <div class="empty-title">等待导入日志</div>
+            <div class="empty-desc">
+              1. 先加载插件 JSON 配置文件<br>
+              2. 再导入 TXT 日志文件<br>
+              3. 工具将自动解析并按模块分类显示
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Navigation Panel -->
+    <aside class="nav-panel" id="navPanel" style="display:none">
+      <div class="nav-header">
+        <div class="nav-title">⚡ 快速导航</div>
+        <button class="btn btn-sm" onclick="closeNavPanel()" style="margin-left:auto">✕</button>
+      </div>
+      <div class="nav-content" id="navContent">
+        <div class="nav-empty">
+          <div class="nav-empty-icon">📍</div>
+          <div>选择模块后显示关键日志位置</div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Flow Panel -->
+    <aside class="flow-panel" id="flowPanel" style="display:none">
+      <div class="flow-header">
+        <div class="flow-title">Flow Timeline</div>
+      </div>
+      <div class="flow-list" id="flowList"></div>
+    </aside>
+  </div>
+</div>
+
+<!-- Loading Overlay -->
+<div class="loading-overlay" id="loadingOverlay">
+  <div class="loading-spinner"></div>
+  <div class="loading-text" id="loadingText">处理中...</div>
+  <div class="loading-progress" id="loadingProgress"></div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<!-- Modal -->
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="modalTitle">Modal</div>
+      <button class="modal-close" onclick="closeModal()">&#x2715;</button>
+    </div>
+    <div class="modal-body" id="modalBody"></div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal()">关闭</button>
+      <button class="btn btn-accent" id="modalAction" style="display:none">复制</button>
+    </div>
+  </div>
+</div>
+
+<!-- Plugin Manager Modal -->
+<div class="modal-overlay" id="pluginManagerOverlay">
+  <div class="modal modal-wide">
+    <div class="modal-header">
+      <div class="modal-title"> 插件管理器</div>
+      <button class="modal-close" onclick="closePluginManager()">&#x2715;</button>
+    </div>
+    <div class="modal-body">
+      <div class="plugin-manager-content">
+        <div class="plugin-manager-header">
+          <div class="plugin-manager-info">
+            <div class="plugin-manager-title">plugins/ 文件夹中的插件</div>
+            <div class="plugin-manager-desc">自动扫描并加载插件，选择启用/禁用</div>
+          </div>
+          <button class="btn btn-sm" onclick="loadPluginsFromFolder()"> 刷新</button>
+        </div>
+        <div class="plugin-list" id="pluginList">
+          <div class="plugin-loading">加载中...</div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closePluginManager()">关闭</button>
+      <button class="btn btn-accent" onclick="applyPluginConfig()">应用配置</button>
+    </div>
+  </div>
+</div>
+
+<!-- JavaScript Modules -->
+<script src="js/utils.js"></script>
+<script src="js/virtual-scroller.js"></script>
+
+<!-- Plugin Files (can be loaded via file:// protocol) -->
+<script src="plugins/sport_analyzer.js" onerror="console.error('Failed to load sport_analyzer.js')"></script>
+<script src="plugins/ota_analyzer.js" onerror="console.error('Failed to load ota_analyzer.js')"></script>
+<script src="plugins/ota_v2.js" onerror="console.error('Failed to load ota_v2.js')"></script>
+<script src="plugins/ble_connect.js" onerror="console.error('Failed to load ble_connect.js')"></script>
+<script src="plugins/example_plugin.js" onerror="console.error('Failed to load example_plugin.js')"></script>
+<script src="plugins/neck_health.js" onerror="console.error('Failed to load neck_health.js')"></script>
+<script>
+  // 调试：检查插件是否加载成功
+  console.log('Plugin check:', {
+    sport: typeof window.__PLUGIN_sport_analyzer,
+    ota_analyzer: typeof window.__PLUGIN_ota_analyzer,
+    ota: typeof window.__PLUGIN_ota,
+    ble_connect: typeof window.__PLUGIN_ble_connect,
+    example: typeof window.__PLUGIN_example,
+    neck_health: typeof window.__PLUGIN_neck_health
+  });
+</script>
+
+<!-- Example Plugin Data -->
+<script>
+window.EXAMPLE_PLUGIN = {
+  "meta": {
+    "name": "Running Sport Analyzer",
+    "version": "1.0.0",
+    "author": "RS Team",
+    "description": "户外跑步运动模块日志分析 — 覆盖初始化、启停暂停、数据上报、算法回调、TWS同步、Flash存储等关键路径"
+  },
+  "modules": [
+    {
+      "id": "sport_lifecycle",
+      "name": "运动生命周期",
+      "icon": "RUN",
+      "category": "sport",
+      "description": "运动初始化、启动、停止、暂停、恢复的核心流程",
+      "patterns": [
+        {
+          "id": "sport_init",
+          "match": "outdoor_run_init",
+          "description": "运动模块初始化"
+        },
+        {
+          "id": "sport_start",
+          "match": "outdoor_run_start, start_time=(\\d+)",
+          "description": "运动启动",
+          "variables": [
+            { "name": "start_time_ms", "extract": "\\1", "type": "number", "unit": "ms" }
+          ]
+        },
+        {
+          "id": "sport_pause",
+          "match": "outdoor_run_pause: paused=true",
+          "description": "运动暂停"
+        },
+        {
+          "id": "sport_resume",
+          "match": "outdoor_run_resume: paused=false, total_pause=(\\d+) ms",
+          "description": "运动恢复",
+          "variables": [
+            { "name": "total_pause_ms", "extract": "\\1", "type": "number", "unit": "ms" }
+          ]
+        },
+        {
+          "id": "sport_stop_done",
+          "match": "outdoor_run_stop done",
+          "description": "运动停止完成"
+        }
+      ]
+    },
+    {
+      "id": "sport_data",
+      "name": "运动数据上报",
+      "icon": "DATA",
+      "category": "sport",
+      "description": "实时数据上报和运动总结",
+      "patterns": [
+        {
+          "id": "sport_summary",
+          "match": "Sports Summary: dur=(\\d+), dist=(\\d+), steps=(\\d+), hr_avg=(\\d+), vo2max=(\\d+)",
+          "description": "运动总结数据",
+          "variables": [
+            { "name": "duration_sec", "extract": "\\1", "type": "number", "unit": "s" },
+            { "name": "distance_m", "extract": "\\2", "type": "number", "unit": "m" },
+            { "name": "steps", "extract": "\\3", "type": "number" },
+            { "name": "hr_avg", "extract": "\\4", "type": "number", "unit": "bpm" },
+            { "name": "vo2max", "extract": "\\5", "type": "number" }
+          ]
+        },
+        {
+          "id": "main_info",
+          "match": "Main Info: steps=(\\d+), dist=(\\d+), cal=(\\d+), pace=(\\d+), hr=(\\d+)",
+          "description": "实时运动数据",
+          "variables": [
+            { "name": "steps", "extract": "\\1", "type": "number" },
+            { "name": "distance_m", "extract": "\\2", "type": "number", "unit": "m" },
+            { "name": "calories", "extract": "\\3", "type": "number", "unit": "kcal" },
+            { "name": "pace", "extract": "\\4", "type": "number" },
+            { "name": "heart_rate", "extract": "\\5", "type": "number", "unit": "bpm" }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "sensor",
+      "name": "传感器管理",
+      "icon": "SENS",
+      "category": "sensor",
+      "description": "心率、血氧等传感器自动启停",
+      "patterns": [
+        {
+          "id": "hr_auto_enable",
+          "match": "Auto-enabling heart rate",
+          "description": "自动开启心率检测"
+        },
+        {
+          "id": "hr_auto_disable",
+          "match": "Auto-disabling heart rate",
+          "description": "自动关闭心率检测"
+        }
+      ]
+    },
+    {
+      "id": "algorithm",
+      "name": "算法回调",
+      "icon": "ALGO",
+      "category": "algorithm",
+      "description": "运动算法输出: VO2Max、训练效果、恢复时间",
+      "patterns": [
+        {
+          "id": "vo2max",
+          "match": "VO2Max: (\\d+) ml/kg/min",
+          "description": "最大摄氧量",
+          "variables": [
+            { "name": "vo2max", "extract": "\\1", "type": "number", "unit": "ml/kg/min" }
+          ]
+        },
+        {
+          "id": "training_effect",
+          "match": "Training Effect: aerobic=(\\d+), anaerobic=(\\d+)",
+          "description": "有氧/无氧训练效果",
+          "variables": [
+            { "name": "aerobic", "extract": "\\1", "type": "number" },
+            { "name": "anaerobic", "extract": "\\2", "type": "number" }
+          ]
+        }
+      ]
+    }
+  ],
+  "flows": [
+    { "id": "step_1", "name": "1. Init", "pattern": "sport_init", "description": "模块初始化" },
+    { "id": "step_2", "name": "2. Start", "pattern": "sport_start", "description": "运动启动" },
+    { "id": "step_3", "name": "3. Data Update", "pattern": "main_info", "description": "实时数据更新" },
+    { "id": "step_4", "name": "4. Stop", "pattern": "sport_stop_done", "description": "运动停止" },
+    { "id": "step_5", "name": "5. Summary", "pattern": "sport_summary", "description": "运动总结" }
+  ]
+};
+</script>
+
+<!-- Main App -->
+<script src="js/app.js"></script>
+
+<!-- Theme Toggle -->
+<script>
+// 主题切换功能
+function toggleTheme() {
+  const html = document.documentElement;
+  const currentTheme = html.getAttribute('data-theme');
+  const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+  
+  html.setAttribute('data-theme', newTheme);
+  localStorage.setItem('theme', newTheme);
+  
+  // 更新按钮文本
+  const btn = document.getElementById('themeBtn');
+  btn.textContent = newTheme === 'dark' ? '☀️ 浅色' : '🌓 主题';
+}
+
+// 关闭导航面板
+function closeNavPanel() {
+  document.getElementById('navPanel').style.display = 'none';
+}
+
+// 初始化时加载保存的主题
+(function initTheme() {
+  const savedTheme = localStorage.getItem('theme') || 'light';
+  document.documentElement.setAttribute('data-theme', savedTheme);
+  
+  // 更新按钮文本
+  const btn = document.getElementById('themeBtn');
+  if (btn) {
+    btn.textContent = savedTheme === 'dark' ? '☀️ 浅色' : '🌓 主题';
+  }
+})();
+</script>
+
+<!-- Modal Functions -->
+<script>
+function showModal(title, bodyHtml, actionText, actionFn) {
+  document.getElementById('modalTitle').textContent = title;
+  document.getElementById('modalBody').innerHTML = bodyHtml;
+  const actionBtn = document.getElementById('modalAction');
+  if (actionText) {
+    actionBtn.style.display = '';
+    actionBtn.textContent = actionText;
+    actionBtn.onclick = actionFn;
+  } else {
+    actionBtn.style.display = 'none';
+  }
+  document.getElementById('modalOverlay').classList.add('active');
+}
+
+function closeModal() {
+  document.getElementById('modalOverlay').classList.remove('active');
+}
+
+document.getElementById('modalOverlay').addEventListener('click', (e) => {
+  if (e.target === e.currentTarget) closeModal();
+});
+
+function showProtocolModal() {
+  const protocol = `{
+  "_protocol": "rs-log-analyzer-plugin-v1.0",
+  "meta": {
+    "name": "插件名称",
+    "version": "1.0.0",
+    "author": "作者",
+    "description": "功能描述"
+  },
+  "modules": [
+    {
+      "id": "唯一标识",
+      "name": "显示名称",
+      "icon": "可选 emoji",
+      "category": "sport|sensor|bluetooth|system|flash|algorithm",
+      "patterns": [
+        {
+          "id": "pattern_id",
+          "match": "正则表达式",
+          "variables": [
+            {
+              "name": "变量名",
+              "extract": "\\\\1",
+              "type": "number|string",
+              "unit": "单位"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "flows": [
+    {
+      "id": "step_1",
+      "name": "步骤名",
+      "pattern": "对应的pattern id"
+    }
+  ]
+}`;
+  
+  showModal('JSON 协议规范 v1.0', `<pre>${Utils.escapeHtml(protocol)}</pre>`, '复制', () => {
+    navigator.clipboard.writeText(protocol);
+    Utils.showToast('已复制协议规范');
+  });
+}
+
+function showPluginModal() {
+  const pluginJson = JSON.stringify(window.EXAMPLE_PLUGIN, null, 2);
+  showModal('示例插件: Running Sport', `<pre>${Utils.escapeHtml(pluginJson)}</pre>`, '下载 JSON', () => {
+    Utils.downloadFile(pluginJson, 'running_sport_analyzer.json', 'application/json');
+    Utils.showToast('已下载示例插件');
+  });
+}
+
+// ─── Plugin Manager ───
+function showPluginManager() {
+  document.getElementById('pluginManagerOverlay').classList.add('active');
+  loadPluginsFromFolder();
+}
+
+function closePluginManager() {
+  document.getElementById('pluginManagerOverlay').classList.remove('active');
+}
+
+function loadPluginsFromFolder() {
+  const pluginList = document.getElementById('pluginList');
+  pluginList.innerHTML = '<div class="plugin-loading">加载中...</div>';
+  
+  const plugins = [];
+  
+  // 收集所有通过 <script> 标签加载的插件
+  // 命名约定：window.__PLUGIN_<filename_without_ext>
+  const pluginGlobals = [
+    { filename: 'sport_analyzer.js', globalVar: '__PLUGIN_sport_analyzer' },
+    { filename: 'ota_analyzer.js', globalVar: '__PLUGIN_ota_analyzer' },
+    { filename: 'ota_v2.js', globalVar: '__PLUGIN_ota' },
+    { filename: 'ble_connect.js', globalVar: '__PLUGIN_ble_connect' },
+    { filename: 'example_plugin.js', globalVar: '__PLUGIN_example' },
+    { filename: 'neck_health.js', globalVar: '__PLUGIN_neck_health' }
+  ];
+  
+  for (const { filename, globalVar } of pluginGlobals) {
+    if (window[globalVar]) {
+      plugins.push({
+        filename,
+        plugin: window[globalVar],
+        enabled: true
+      });
+    }
+  }
+  
+  if (plugins.length > 0) {
+    app.allPlugins = plugins;
+    renderPluginList(plugins);
+    console.log('✅ Loaded plugins:', plugins.map(p => p.filename));
+    return Promise.resolve();
+  } else {
+    pluginList.innerHTML = '<div class="plugin-loading">未找到插件<br><small>请将插件 JS 文件放入 plugins/ 文件夹</small></div>';
+    console.warn('❌ No plugins found. Check if plugin files are loaded correctly.');
+    return Promise.resolve();
+  }
+}
+
+function renderPluginList(plugins) {
+  const pluginList = document.getElementById('pluginList');
+  const savedConfig = JSON.parse(localStorage.getItem('pluginConfig') || '{}');
+  
+  pluginList.innerHTML = plugins.map((item, index) => {
+    const plugin = item.plugin;
+    const enabled = savedConfig[item.filename] !== false; // 默认启用
+    const moduleCount = plugin.modules ? plugin.modules.length : 0;
+    const patternCount = plugin.modules ? plugin.modules.reduce((sum, m) => sum + (m.patterns ? m.patterns.length : 0), 0) : 0;
+    
+    return `
+      <div class="plugin-item ${enabled ? '' : 'disabled'}">
+        <div class="plugin-toggle ${enabled ? 'active' : ''}" 
+             onclick="togglePlugin('${item.filename}', this)"></div>
+        <div class="plugin-info">
+          <div class="plugin-name">${Utils.escapeHtml(plugin.meta.name)}</div>
+          <div class="plugin-meta">
+            <span>v${Utils.escapeHtml(plugin.meta.version || '1.0.0')}</span>
+            <span>${moduleCount} modules</span>
+            <span>${patternCount} patterns</span>
+          </div>
+          ${plugin.meta.description ? `<div class="plugin-desc">${Utils.escapeHtml(plugin.meta.description)}</div>` : ''}
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function togglePlugin(filename, element) {
+  element.classList.toggle('active');
+  element.closest('.plugin-item').classList.toggle('disabled');
+}
+
+function applyPluginConfig() {
+  const config = {};
+  const items = document.querySelectorAll('.plugin-item');
+  const filenames = app.allPlugins.map(p => p.filename);
+  
+  items.forEach((item, index) => {
+    const toggle = item.querySelector('.plugin-toggle');
+    config[filenames[index]] = toggle.classList.contains('active');
+  });
+  
+  // 保存配置
+  localStorage.setItem('pluginConfig', JSON.stringify(config));
+  app.pluginConfig = config;
+  
+  // 重新加载启用的插件
+  loadEnabledPlugins();
+  
+  closePluginManager();
+  Utils.showToast('已应用插件配置');
+}
+
+function loadEnabledPlugins() {
+  const savedConfig = JSON.parse(localStorage.getItem('pluginConfig') || '{}');
+  app.plugins = [];
+  
+  if (app.allPlugins && app.allPlugins.length > 0) {
+    app.allPlugins.forEach(item => {
+      const enabled = savedConfig[item.filename] !== false; // 默认启用
+      if (enabled) {
+        const plugin = JSON.parse(JSON.stringify(item.plugin));
+        app.compilePluginPatterns(plugin);
+        app.plugins.push(plugin);
+      }
+    });
+  }
+  
+  app.renderPluginInfo();
+  app.renderModuleList();
+  
+  // 如果已有日志，重新处理
+  if (app.logEntries.length > 0) {
+    app.reprocessLogs();
+  }
+}
+
+</script>
+
+</body>
+</html>

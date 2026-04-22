@@ -1,0 +1,23 @@
+<component name="InspectionProjectProfileManager">
+  <profile version="1.0">
+    <option name="myName" value="Project Default" />
+    <inspection_tool class="PyPackageRequirementsInspection" enabled="true" level="WARNING" enabled_by_default="true">
+      <option name="ignoredPackages">
+        <list>
+          <option value="pyserial" />
+          <option value="pandas" />
+          <option value="numpy" />
+          <option value="matplotlib" />
+          <option value="scikit-learn" />
+          <option value="PyQt5" />
+          <option value="scipy" />
+          <option value="seaborn" />
+          <option value="pyqtgraph" />
+          <option value="bleak" />
+          <option value="xgboost" />
+          <option value="PyQt6" />
+        </list>
+      </option>
+    </inspection_tool>
+  </profile>
+</component>

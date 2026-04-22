@@ -1,0 +1,401 @@
+{
+  "_protocol": "rs-log-analyzer-plugin-v1.0",
+  "meta": {
+    "name": "RS Motion 颈椎健康日志分析插件",
+    "version": "1.0.0",
+    "author": "rs-motion-team",
+    "description": "解析颈椎健康监测、舒展提醒、TWS同步、颈椎校准等全流程日志，覆盖 rs_motion_func_handle.c / rs_motion_adapter.c / rs_motion_tws_sync.c / rs_app_earphone_handle.cpp 等文件。"
+  },
+  "modules": [
+    {
+      "id": "neck_lifecycle",
+      "name": "颈椎健康生命周期",
+      "icon": "🦴",
+      "category": "sensor",
+      "patterns": [
+        {
+          "id": "neck_init",
+          "match": "\\[NECK\\] init done, restored from cache: wear=(\\d+)min, hours=(\\d+), RTC (\\d{2}):(<span aria-hidden='true'>02</span>)",
+          "variables": [
+            {"name": "total_wear_time_min", "extract": "\\1", "type": "number", "unit": "min"},
+            {"name": "hour_count", "extract": "\\2", "type": "number", "unit": "count"},
+            {"name": "rtc_hour", "extract": "\\3", "type": "number", "unit": "h"},
+            {"name": "rtc_minute", "extract": "\\4", "type": "number", "unit": "min"}
+          ]
+        },
+        {
+          "id": "neck_init_empty",
+          "match": "\\[NECK\\] init done, RTC time (\\d{2}):(<span aria-hidden='true'>02</span>)",
+          "variables": [
+            {"name": "rtc_hour", "extract": "\\1", "type": "number", "unit": "h"},
+            {"name": "rtc_minute", "extract": "\\2", "type": "number", "unit": "min"}
+          ]
+        },
+        {
+          "id": "neck_start",
+          "match": "neck_start",
+          "variables": []
+        },
+        {
+          "id": "neck_stop",
+          "match": "neck_stop",
+          "variables": []
+        }
+      ]
+    },
+    {
+      "id": "neck_rtc_hour",
+      "name": "RTC小时切换",
+      "icon": "⏰",
+      "category": "system",
+      "patterns": [
+        {
+          "id": "neck_first_hour",
+          "match": "\\[NECK\\] Init: RTC time (\\d{2}):(<span aria-hidden='true'>02</span>), hour_idx=(\\d+) \\(using real hour\\)",
+          "variables": [
+            {"name": "rtc_hour", "extract": "\\1", "type": "number", "unit": "h"},
+            {"name": "rtc_minute", "extract": "\\2", "type": "number", "unit": "min"},
+            {"name": "hour_idx", "extract": "\\3", "type": "number", "unit": "h"}
+          ]
+        },
+        {
+          "id": "neck_new_hour",
+          "match": "\\[NECK\\] New hour: RTC (\\d{2}):00, hour_idx=(\\d+), total_hours=(\\d+)",
+          "variables": [
+            {"name": "rtc_hour", "extract": "\\1", "type": "number", "unit": "h"},
+            {"name": "hour_idx", "extract": "\\2", "type": "number", "unit": "h"},
+            {"name": "total_hours", "extract": "\\3", "type": "number", "unit": "count"}
+          ]
+        },
+        {
+          "id": "neck_day_changed",
+          "match": "\\[NECK\\] Day changed: (\\d+) -> (\\d+), reset all segments",
+          "variables": [
+            {"name": "last_day", "extract": "\\1", "type": "number", "unit": "day"},
+            {"name": "new_day", "extract": "\\2", "type": "number", "unit": "day"}
+          ]
+        }
+      ]
+    },
+    {
+      "id": "neck_stretch_alert",
+      "name": "颈椎舒展提醒",
+      "icon": "🚨",
+      "category": "algorithm",
+      "patterns": [
+        {
+          "id": "neck_stretch_cycle",
+          "match": "\\[NECK\\] Stretch cycle #(\\d+): interval=(\\d+)min, samples=(\\d+), low_head=(\\d+), ratio=(\\d+)%%",
+          "variables": [
+            {"name": "cycle_counter", "extract": "\\1", "type": "number", "unit": "count"},
+            {"name": "interval_min", "extract": "\\2", "type": "number", "unit": "min"},
+            {"name": "samples", "extract": "\\3", "type": "number", "unit": "count"},
+            {"name": "low_head_count", "extract": "\\4", "type": "number", "unit": "count"},
+            {"name": "low_head_ratio", "extract": "\\5", "type": "number", "unit": "%"}
+          ]
+        },
+        {
+          "id": "neck_alert_played",
+          "match": "\\[NECK\\] Alert played! head_down_count=(\\d+)",
+          "variables": [
+            {"name": "head_down_count", "extract": "\\1", "type": "number", "unit": "count"}
+          ]
+        }
+      ]
+    },
+    {
+      "id": "neck_periodic_report",
+      "name": "颈椎健康定期上报",
+      "icon": "📊",
+      "category": "sensor",
+      "patterns": [
+        {
+          "id": "neck_report_cycle",
+          "match": "\\[NECK\\] Report cycle: interval=(\\d+)min, total_wear=(\\d+)min, hour_wear=(\\d+)min",
+          "variables": [
+            {"name": "report_interval_min", "extract": "\\1", "type": "number", "unit": "min"},
+            {"name": "total_wear_time_min", "extract": "\\2", "type": "number", "unit": "min"},
+            {"name": "hour_wear_time_min", "extract": "\\3", "type": "number", "unit": "min"}
+          ]
+        },
+        {
+          "id": "neck_save_cache",
+          "match": "\\[NECK\\] RTC (\\d{2}):(<span aria-hidden='true'>02</span>), level=(\\d+), wear=(\\d+)min, hour_wear=(\\d+)min, ratio=\\[(\\d+),(\\d+),(\\d+),(\\d+),(\\d+)\\]",
+          "variables": [
+            {"name": "rtc_hour", "extract": "\\1", "type": "number", "unit": "h"},
+            {"name": "rtc_minute", "extract": "\\2", "type": "number", "unit": "min"},
+            {"name": "current_level", "extract": "\\3", "type": "number", "unit": "level"},
+            {"name": "total_wear_time_min", "extract": "\\4", "type": "number", "unit": "min"},
+            {"name": "hour_wear_time_min", "extract": "\\5", "type": "number", "unit": "min"},
+            {"name": "ratio_0", "extract": "\\6", "type": "number", "unit": "%"},
+            {"name": "ratio_1", "extract": "\\7", "type": "number", "unit": "%"},
+            {"name": "ratio_2", "extract": "\\8", "type": "number", "unit": "%"},
+            {"name": "ratio_3", "extract": "\\9", "type": "number", "unit": "%"},
+            {"name": "ratio_4", "extract": "\\10", "type": "number", "unit": "%"}
+          ]
+        }
+      ]
+    },
+    {
+      "id": "neck_tws_sync",
+      "name": "颈椎健康TWS同步",
+      "icon": "🔗",
+      "category": "bluetooth",
+      "patterns": [
+        {
+          "id": "neck_tws_send",
+          "match": "send neck: level=(\\d+), wear=(\\d+)min",
+          "variables": [
+            {"name": "current_level", "extract": "\\1", "type": "number", "unit": "level"},
+            {"name": "total_wear_time_min", "extract": "\\2", "type": "number", "unit": "min"}
+          ]
+        },
+        {
+          "id": "neck_tws_recv",
+          "match": "=== RECV NECK STATE: len=(\\d+) ===",
+          "variables": [
+            {"name": "len", "extract": "\\1", "type": "number", "unit": "bytes"}
+          ]
+        },
+        {
+          "id": "neck_tws_recv_detail",
+          "match": "recv neck: wear=(\\d+)min, hour_wear=(\\d+)min, hour_idx=(\\d+), ratio=\\[(\\d+),(\\d+),(\\d+),(\\d+),(\\d+)\\]",
+          "variables": [
+            {"name": "total_wear_time_min", "extract": "\\1", "type": "number", "unit": "min"},
+            {"name": "hour_wear_time_min", "extract": "\\2", "type": "number", "unit": "min"},
+            {"name": "hour_idx", "extract": "\\3", "type": "number", "unit": "h"},
+            {"name": "ratio_0", "extract": "\\4", "type": "number", "unit": "%"},
+            {"name": "ratio_1", "extract": "\\5", "type": "number", "unit": "%"},
+            {"name": "ratio_2", "extract": "\\6", "type": "number", "unit": "%"},
+            {"name": "ratio_3", "extract": "\\7", "type": "number", "unit": "%"},
+            {"name": "ratio_4", "extract": "\\8", "type": "number", "unit": "%"}
+          ]
+        }
+      ]
+    },
+    {
+      "id": "neck_calibration",
+      "name": "颈椎传感器校准",
+      "icon": "🎯",
+      "category": "algorithm",
+      "patterns": [
+        {
+          "id": "neck_cali_evt",
+          "match": "\\[NeckCali\\] EVT: step=(\\d+), status=(\\d+)",
+          "variables": [
+            {"name": "step", "extract": "\\1", "type": "number", "unit": "step"},
+            {"name": "status", "extract": "\\2", "type": "number", "unit": "status"}
+          ]
+        },
+        {
+          "id": "neck_cali_saved",
+          "match": "\\[Neck\\] Calibration data saved, crc=0x([0-9A-Fa-f]{4})",
+          "variables": [
+            {"name": "crc", "extract": "\\1", "type": "string", "unit": "hex"}
+          ]
+        },
+        {
+          "id": "neck_cali_step_start",
+          "match": "\\[NeckCali\\] Step (\\d+) started, tick=(\\d+)",
+          "variables": [
+            {"name": "step", "extract": "\\1", "type": "number", "unit": "step"},
+            {"name": "tick", "extract": "\\2", "type": "number", "unit": "ms"}
+          ]
+        },
+        {
+          "id": "neck_cali_timer_not_wear",
+          "match": "\\[NeckCali\\] Timer: not dual-wear, abort step (\\d+)",
+          "variables": [
+            {"name": "step", "extract": "\\1", "type": "number", "unit": "step"}
+          ]
+        },
+        {
+          "id": "neck_cali_timer_step_timeout",
+          "match": "\\[NeckCali\\] Timer: step (\\d+) timeout",
+          "variables": [
+            {"name": "step", "extract": "\\1", "type": "number", "unit": "step"}
+          ]
+        },
+        {
+          "id": "neck_cali_timer_total_timeout",
+          "match": "\\[NeckCali\\] Timer: total timeout \\((\\d+) s\\)",
+          "variables": [
+            {"name": "timeout_sec", "extract": "\\1", "type": "number", "unit": "s"}
+          ]
+        },
+        {
+          "id": "neck_cali_abort",
+          "match": "\\[NeckCali\\] Abort: step=(\\d+)",
+          "variables": [
+            {"name": "step", "extract": "\\1", "type": "number", "unit": "step"}
+          ]
+        }
+      ]
+    },
+    {
+      "id": "neck_algorithm_data",
+      "name": "算法原始数据",
+      "icon": "📈",
+      "category": "algorithm",
+      "patterns": [
+        {
+          "id": "neck_idx_level",
+          "match": "IDX\\[(\\d+)\\]: ([-+]?[0-9]*\\.?[0-9]+), ([-+]?[0-9]*\\.?[0-9]+)",
+          "variables": [
+            {"name": "sensor_type", "extract": "\\1", "type": "number", "unit": "idx"},
+            {"name": "fdata_0", "extract": "\\2", "type": "number", "unit": "raw"},
+            {"name": "fdata_1", "extract": "\\3", "type": "number", "unit": "raw"}
+          ]
+        },
+        {
+          "id": "neck_level",
+          "match": "level (\\d+)",
+          "variables": [
+            {"name": "level", "extract": "\\1", "type": "number", "unit": "level"}
+          ]
+        }
+      ]
+    },
+    {
+      "id": "neck_app_protocol",
+      "name": "APP协议交互",
+      "icon": "📱",
+      "category": "bluetooth",
+      "patterns": [
+        {
+          "id": "app_neck_health_ctrl",
+          "match": "RS_MOTION_MONITOR_NECK_HEALTH_CTRL.*payload\\[1\\]=(0x[0-9a-fA-F]+)",
+          "variables": [
+            {"name": "payload_1", "extract": "\\1", "type": "string", "unit": "hex"}
+          ]
+        },
+        {
+          "id": "app_neck_cali_invalid_step",
+          "match": "\\[NeckCali\\] Invalid step: (\\d+)",
+          "variables": [
+            {"name": "step", "extract": "\\1", "type": "number", "unit": "step"}
+          ]
+        },
+        {
+          "id": "app_neck_sensor_wear_detect",
+          "match": "NECK_SENSOR_WEAR_DETECT: local=(\\d), peer=(\\d), mode=(\\d)",
+          "variables": [
+            {"name": "local_weared", "extract": "\\1", "type": "number", "unit": "bool"},
+            {"name": "peer_weared", "extract": "\\2", "type": "number", "unit": "bool"},
+            {"name": "wear_mode", "extract": "\\3", "type": "number", "unit": "mode"}
+          ]
+        },
+        {
+          "id": "app_get_neck_health_fail",
+          "match": "get_neck_health fail",
+          "variables": []
+        }
+      ]
+    }
+  ],
+  "flows": [
+    {
+      "id": "neck_enable_flow",
+      "name": "APP开启颈椎健康监测",
+      "description": "APP发送 0x0D 0x02 开启指令 → rs_app_earphone_handle.cpp 解析 → rs_motion_manager_enable_func() → neck_init() 从缓存恢复或初始化 → neck_start() 开启算法传感器",
+      "steps": [
+        {"id": "step_1", "pattern": "app_neck_health_ctrl", "name": "APP发送开启指令"},
+        {"id": "step_2", "pattern": "neck_init", "name": "初始化颈椎数据"},
+        {"id": "step_3", "pattern": "neck_start", "name": "开启颈椎传感器"}
+      ]
+    },
+    {
+      "id": "neck_disable_flow",
+      "name": "APP关闭颈椎健康监测",
+      "description": "APP发送关闭指令 → rs_motion_manager_disable_func() → neck_stop() 关闭算法传感器",
+      "steps": [
+        {"id": "step_1", "pattern": "app_neck_health_ctrl", "name": "APP发送关闭指令"},
+        {"id": "step_2", "pattern": "neck_stop", "name": "关闭颈椎传感器"}
+      ]
+    },
+    {
+      "id": "neck_algorithm_update_flow",
+      "name": "算法数据更新与统计",
+      "description": "算法 IDX_NECK 事件输出 level → adapter 层接收 → neck_result_callback 更新 current_level → neck_update 进行主耳统计（从耳跳过）→ 更新 level_ratio / 佩戴时长 / 舒展提醒周期",
+      "steps": [
+        {"id": "step_1", "pattern": "neck_idx_level", "name": "算法输出原始数据"},
+        {"id": "step_2", "pattern": "neck_level", "name": "解析出颈椎等级"},
+        {"id": "step_3", "pattern": "neck_save_cache", "name": "主耳统计并保存缓存"}
+      ]
+    },
+    {
+      "id": "neck_hour_switch_flow",
+      "name": "RTC小时切换",
+      "description": "neck_update 中检测 RTC 小时变化 → 首次初始化或跨小时 → 重置当前小时佩戴时长 → 新建 segment",
+      "steps": [
+        {"id": "step_1", "pattern": "neck_first_hour", "name": "首次初始化小时"},
+        {"id": "step_2", "pattern": "neck_new_hour", "name": "切换到新小时"},
+        {"id": "step_3", "pattern": "neck_day_changed", "name": "跨天重置所有数据"}
+      ]
+    },
+    {
+      "id": "neck_stretch_alert_flow",
+      "name": "颈椎舒展提醒触发",
+      "description": "舒展提醒周期到达 → 统计低等级占比 → low_head_ratio >= 50% → 播放提示音 → 上报低头次数到APP",
+      "steps": [
+        {"id": "step_1", "pattern": "neck_stretch_cycle", "name": "舒展周期统计"},
+        {"id": "step_2", "pattern": "neck_alert_played", "name": "触发提醒并上报"}
+      ]
+    },
+    {
+      "id": "neck_periodic_report_flow",
+      "name": "颈椎健康定期上报APP",
+      "description": "按配置的 neck_health_interval（默认10分钟）→ 组装 16 字节协议数据 → rs_motion_notify_neck_health_data() 上报",
+      "steps": [
+        {"id": "step_1", "pattern": "neck_report_cycle", "name": "上报周期到达"}
+      ]
+    },
+    {
+      "id": "neck_tws_sync_flow",
+      "name": "颈椎健康TWS主从同步",
+      "description": "主耳每分钟将 neck_sync 结构体发送到从耳 → 从耳接收并更新静态变量和缓存 → 确保主从切换后数据连续",
+      "steps": [
+        {"id": "step_1", "pattern": "neck_tws_send", "name": "主耳发送颈椎状态"},
+        {"id": "step_2", "pattern": "neck_tws_recv", "name": "从耳接收颈椎状态"},
+        {"id": "step_3", "pattern": "neck_tws_recv_detail", "name": "从耳更新本地缓存"}
+      ]
+    },
+    {
+      "id": "neck_calibration_flow",
+      "name": "颈椎传感器校准流程",
+      "description": "APP发送 0x0D 0x0D Step1 → 注册回调 + 启动 timer（1秒周期，检测佩戴+超时）→ Step2/Step3 由APP或算法驱动 → Step3成功保存校准数据到Flash → 任意失败/超时/摘耳触发 abort",
+      "steps": [
+        {"id": "step_1", "pattern": "neck_cali_step_start", "name": "校准步骤开始"},
+        {"id": "step_2", "pattern": "neck_cali_evt", "name": "算法回调事件"},
+        {"id": "step_3", "pattern": "neck_cali_saved", "name": "校准数据保存成功"}
+      ]
+    },
+    {
+      "id": "neck_calibration_abort_flow",
+      "name": "颈椎校准异常终止",
+      "description": "Timer 检测到未双耳佩戴 / 单步10秒超时 / 总40秒超时 → 调用 rs_motion_adapter_neck_cali_abort() → 停止 timer + 禁用传感器 + 回调通知APP失败",
+      "steps": [
+        {"id": "step_1", "pattern": "neck_cali_timer_not_wear", "name": "佩戴检测失败"},
+        {"id": "step_2", "pattern": "neck_cali_timer_step_timeout", "name": "单步超时"},
+        {"id": "step_3", "pattern": "neck_cali_timer_total_timeout", "name": "总流程超时"},
+        {"id": "step_4", "pattern": "neck_cali_abort", "name": "校准中止"}
+      ]
+    },
+    {
+      "id": "neck_app_query_flow",
+      "name": "APP查询颈椎健康数据",
+      "description": "APP发送 0x0D 0x06 → 从 RAM 缓存读取当天数据 → 返回总佩戴时长、当前小时时长、Level 1-5 占比",
+      "steps": [
+        {"id": "step_1", "pattern": "app_get_neck_health_fail", "name": "缓存获取失败"}
+      ]
+    },
+    {
+      "id": "neck_wear_detect_flow",
+      "name": "颈椎传感器佩戴检测",
+      "description": "APP发送 0x0D 0x0C → 查询本地和对耳佩戴状态 → 返回 0x00双耳/0x01单耳/0x02双耳出耳",
+      "steps": [
+        {"id": "step_1", "pattern": "app_neck_sensor_wear_detect", "name": "佩戴状态查询"}
+      ]
+    }
+  ]
+}
