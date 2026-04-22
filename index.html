@@ -21,6 +21,7 @@
     <div class="header-actions">
       <button class="btn" onclick="toggleTheme()" id="themeBtn" title="切换主题">🌓 主题</button>
       <button class="btn" onclick="showPluginManager()" id="pluginManagerBtn" title="插件管理"> 插件</button>
+      <button class="btn" onclick="showPluginGuide()" id="pluginGuideBtn" title="插件开发规范"> 开发规范</button>
       <button class="btn" onclick="document.getElementById('logInput').click()">导入日志</button>
     </div>
     <input type="file" id="logInput" accept=".txt,.log" style="display:none">
@@ -160,6 +161,254 @@
     <div class="modal-footer">
       <button class="btn" onclick="closePluginManager()">关闭</button>
       <button class="btn btn-accent" onclick="applyPluginConfig()">应用配置</button>
+    </div>
+  </div>
+</div>
+
+<!-- Plugin Guide Modal -->
+<div class="modal-overlay" id="pluginGuideOverlay">
+  <div class="modal modal-xl">
+    <div class="modal-header">
+      <div class="modal-title">📖 插件开发规范</div>
+      <button class="modal-close" onclick="closePluginGuide()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="plugin-guide-content">
+        <div class="guide-section">
+          <h3>📋 概述</h3>
+          <p>本规范定义了 RS Log Analyzer 的插件格式，AI 或开发者可以按照此格式自动生成插件文件。</p>
+        </div>
+        
+        <div class="guide-section">
+          <h3>📁 文件位置</h3>
+          <p>插件文件放置在 <code>plugins/</code> 文件夹中，格式为 <code>.js</code> 文件。</p>
+        </div>
+        
+        <div class="guide-section">
+          <h3>🔧 插件格式</h3>
+          <h4>1. 文件命名规则</h4>
+          <pre><code>&lt;插件标识&gt;.js
+
+例如：
+- sport_analyzer.js
+- ota_v2.js
+- ble_connect.js
+- neck_health.js</code></pre>
+          
+          <h4>2. 全局变量命名</h4>
+          <pre><code>window.__PLUGIN_&lt;插件标识&gt; = {
+  // 插件内容
+};
+
+命名规范：
+- 插件标识使用小写字母和下划线
+- 全局变量前缀固定为 __PLUGIN_
+- 例如：window.__PLUGIN_sport_analyzer = { ... };</code></pre>
+        </div>
+        
+        <div class="guide-section">
+          <h3>📦 插件 JSON 结构</h3>
+          <pre><code>window.__PLUGIN_&lt;标识&gt; = {
+  "meta": {
+    "name": "插件显示名称",
+    "version": "1.0.0",
+    "author": "作者名称",
+    "description": "插件功能描述"
+  },
+  "modules": [
+    {
+      "id": "模块唯一标识",
+      "name": "模块显示名称",
+      "icon": "图标或Emoji",
+      "category": "分类标识",
+      "description": "模块功能描述（可选）",
+      "patterns": [
+        {
+          "id": "模式唯一标识",
+          "match": "正则表达式字符串",
+          "description": "模式描述",
+          "variables": [
+            {
+              "name": "变量名",
+              "extract": "\\1",
+              "type": "number|string",
+              "unit": "单位（可选）"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "flows": [
+    {
+      "id": "步骤唯一标识",
+      "name": "步骤显示名称",
+      "pattern": "对应的 pattern id",
+      "description": "步骤描述"
+    }
+  ]
+};</code></pre>
+        </div>
+        
+        <div class="guide-section">
+          <h3>📖 字段详细说明</h3>
+          
+          <h4>meta（元数据）</h4>
+          <table class="guide-table">
+            <thead>
+              <tr><th>字段</th><th>类型</th><th>必填</th><th>说明</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>name</td><td>string</td><td>✅</td><td>插件显示名称</td></tr>
+              <tr><td>version</td><td>string</td><td>✅</td><td>版本号，如 "1.0.0"</td></tr>
+              <tr><td>author</td><td>string</td><td>✅</td><td>作者名称</td></tr>
+              <tr><td>description</td><td>string</td><td>✅</td><td>插件功能描述</td></tr>
+            </tbody>
+          </table>
+          
+          <h4>modules（模块数组）</h4>
+          <p>每个模块包含一组相关的日志匹配模式。</p>
+          <table class="guide-table">
+            <thead>
+              <tr><th>字段</th><th>类型</th><th>必填</th><th>说明</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>id</td><td>string</td><td>✅</td><td>模块唯一标识（小写字母+下划线）</td></tr>
+              <tr><td>name</td><td>string</td><td>✅</td><td>模块显示名称</td></tr>
+              <tr><td>icon</td><td>string</td><td>✅</td><td>图标（建议使用Emoji，如 📦）</td></tr>
+              <tr><td>category</td><td>string</td><td>✅</td><td>分类标识</td></tr>
+              <tr><td>description</td><td>string</td><td>⬜</td><td>模块功能描述</td></tr>
+              <tr><td>patterns</td><td>array</td><td>✅</td><td>日志匹配模式数组</td></tr>
+            </tbody>
+          </table>
+          <p><strong>常用分类</strong>：bluetooth, sensor, algorithm, flash, system, sport, ota, error, info, tws</p>
+          
+          <h4>patterns（模式数组）</h4>
+          <p>定义如何匹配日志行并提取变量。</p>
+          <table class="guide-table">
+            <thead>
+              <tr><th>字段</th><th>类型</th><th>必填</th><th>说明</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>id</td><td>string</td><td>✅</td><td>模式唯一标识（小写字母+下划线）</td></tr>
+              <tr><td>match</td><td>string</td><td>✅</td><td>正则表达式（注意转义：\\d+ \\w+ 等）</td></tr>
+              <tr><td>description</td><td>string</td><td>⬜</td><td>模式描述</td></tr>
+              <tr><td>variables</td><td>array</td><td>⬜</td><td>变量提取配置数组</td></tr>
+            </tbody>
+          </table>
+          
+          <h4>variables（变量数组）</h4>
+          <p>从匹配结果中提取数据。</p>
+          <table class="guide-table">
+            <thead>
+              <tr><th>字段</th><th>类型</th><th>必填</th><th>说明</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>name</td><td>string</td><td>✅</td><td>变量名（英文，下划线分隔）</td></tr>
+              <tr><td>extract</td><td>string</td><td>✅</td><td>提取表达式（如 "\\1", "\\2"）</td></tr>
+              <tr><td>type</td><td>string</td><td>✅</td><td>数据类型（number 或 string）</td></tr>
+              <tr><td>unit</td><td>string</td><td>⬜</td><td>单位（如 ms, bpm, °C, bytes）</td></tr>
+            </tbody>
+          </table>
+          
+          <h4>flows（流程数组）</h4>
+          <p>定义日志分析的标准流程步骤。</p>
+          <table class="guide-table">
+            <thead>
+              <tr><th>字段</th><th>类型</th><th>必填</th><th>说明</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>id</td><td>string</td><td>✅</td><td>步骤唯一标识</td></tr>
+              <tr><td>name</td><td>string</td><td>✅</td><td>步骤显示名称</td></tr>
+              <tr><td>pattern</td><td>string</td><td>✅</td><td>对应的 pattern id</td></tr>
+              <tr><td>description</td><td>string</td><td>⬜</td><td>步骤描述</td></tr>
+            </tbody>
+          </table>
+        </div>
+        
+        <div class="guide-section">
+          <h3>💡 正则表达式规范</h3>
+          <h4>常用正则模式</h4>
+          <pre><code>// 匹配数字
+"(\\d+)"                    // 匹配任意数字
+"(\\d+) ms"                 // 匹配数字+单位
+"(\\d+\\.\\d+)"             // 匹配小数
+
+// 匹配十六进制
+"(0x[0-9A-Fa-f]+)"          // 匹配 0x1234AB
+"(0x[0-9A-F]{4})"           // 匹配 0xABCD（固定4位）
+
+// 匹配字符串
+"([a-zA-Z_]+)"              // 匹配字母和下划线
+"([\\w]+)"                  // 匹配单词字符
+"(.+)"                      // 匹配任意字符（贪婪）
+
+// 匹配可选内容
+"(success|fail|\\d+)"       // 匹配 success 或 fail 或数字
+"(true|false|0|1)"          // 匹配布尔值
+
+// 匹配MAC地址
+"([0-9A-Fa-f:]{17})"        // 匹配 AA:BB:CC:DD</code></pre>
+        </div>
+        
+        <div class="guide-section">
+          <h3>📝 完整示例</h3>
+          <pre><code>window.__PLUGIN_bluetooth = {
+  "meta": {
+    "name": "蓝牙连接分析器",
+    "version": "1.0.0",
+    "author": "Your Name",
+    "description": "分析蓝牙连接和断开的日志"
+  },
+  "modules": [
+    {
+      "id": "ble_connect",
+      "name": "BLE连接",
+      "icon": "🔗",
+      "category": "bluetooth",
+      "description": "蓝牙低功耗连接过程",
+      "patterns": [
+        {
+          "id": "ble_connected",
+          "match": "BLE connected, addr=([0-9A-Fa-f:]{17}), conn_id=(\\d+)",
+          "description": "BLE设备连接成功",
+          "variables": [
+            { "name": "mac_address", "extract": "\\1", "type": "string" },
+            { "name": "connection_id", "extract": "\\2", "type": "number" }
+          ]
+        },
+        {
+          "id": "ble_disconnected",
+          "match": "BLE disconnected, reason=(\\d+)",
+          "description": "BLE设备断开连接",
+          "variables": [
+            { "name": "disconnect_reason", "extract": "\\1", "type": "number" }
+          ]
+        }
+      ]
+    }
+  ],
+  "flows": [
+    { "id": "step_1", "name": "设备连接", "pattern": "ble_connected" },
+    { "id": "step_2", "name": "设备断开", "pattern": "ble_disconnected" }
+  ]
+};</code></pre>
+        </div>
+        
+        <div class="guide-section">
+          <h3>🚀 使用步骤</h3>
+          <ol>
+            <li>将上述代码保存为 <code>plugins/bluetooth.js</code></li>
+            <li>在 <code>index.html</code> 中添加 <code>&lt;script src="plugins/bluetooth.js"&gt;</code></li>
+            <li>在 <code>loadPluginsFromFolder()</code> 函数中添加插件映射</li>
+            <li>刷新页面即可使用新插件</li>
+          </ol>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closePluginGuide()">关闭</button>
+      <button class="btn btn-accent" onclick="copyPluginGuide()">📋 复制规范</button>
     </div>
   </div>
 </div>
@@ -542,6 +791,25 @@ function applyPluginConfig() {
   
   closePluginManager();
   Utils.showToast('已应用插件配置');
+}
+
+// Plugin Guide Functions
+function showPluginGuide() {
+  document.getElementById('pluginGuideOverlay').classList.add('active');
+}
+
+function closePluginGuide() {
+  document.getElementById('pluginGuideOverlay').classList.remove('active');
+}
+
+function copyPluginGuide() {
+  const guideContent = document.querySelector('.plugin-guide-content').innerText;
+  navigator.clipboard.writeText(guideContent).then(() => {
+    Utils.showToast('规范已复制到剪贴板');
+  }).catch(err => {
+    console.error('复制失败:', err);
+    Utils.showToast('复制失败');
+  });
 }
 
 function loadEnabledPlugins() {
