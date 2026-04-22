@@ -13,6 +13,11 @@ class LogAnalyzerApp {
     this.searchQuery = '';
     this.collapsedModules = new Set();
     this.pluginConfig = {}; // 插件启用配置
+    this.searchRegex = null; // 正则搜索对象
+    
+    // 范围选择
+    this.rangeStart = null;
+    this.rangeEnd = null;
     
     // 虚拟滚动器
     this.scroller = null;
@@ -286,10 +291,16 @@ class LogAnalyzerApp {
       }
     }
     
+    // 范围过滤
+    if (this.rangeStart !== null && this.rangeEnd !== null) {
+      filtered = filtered.filter(e => e.lineNum >= this.rangeStart && e.lineNum <= this.rangeEnd);
+    }
+    
     this.filteredEntries = filtered;
     this.updateStats();
     this.scroller.setItems(filtered);
     this.renderNavigation();
+    this.renderRangeIndicator();
   }
 
   /**
@@ -311,14 +322,29 @@ class LogAnalyzerApp {
       text = Utils.highlightVariables(text, entry.variables);
     }
     
-    div.className = 'log-line ' + catClass;
+    // 构建类名
+    let classes = 'log-line ' + catClass;
+    if (this.rangeStart !== null && entry.lineNum === this.rangeStart) {
+      classes += ' range-start';
+    }
+    if (this.rangeEnd !== null && entry.lineNum === this.rangeEnd) {
+      classes += ' range-end';
+    }
+    
+    div.className = classes;
     div.dataset.lineNum = entry.lineNum;
     
-    // 点击打开上下文浮窗
+    // 单击打开上下文浮窗
     div.style.cursor = 'pointer';
     div.addEventListener('click', (e) => {
-      if (e.target.closest('.context-popup')) return; // 防止点击浮窗内元素触发
+      if (e.target.closest('.context-popup')) return;
       this.showContextPopup(entry);
+    });
+    
+    // 双击设置范围起点/终点
+    div.addEventListener('dblclick', (e) => {
+      if (e.target.closest('.context-popup')) return;
+      this.setRangePoint(entry.lineNum);
     });
     
     // 如果有模块信息，添加工具提示
@@ -778,7 +804,8 @@ class LogAnalyzerApp {
       html += `
         <div class="context-line ${isTarget ? 'context-line-target' : ''}" 
              data-line-num="${ctxEntry.lineNum}"
-             onclick="app.scrollToLine(${ctxEntry.lineNum}); app.closeContextPopup();">
+             onclick="app.scrollToLine(${ctxEntry.lineNum}); app.closeContextPopup();"
+             ondblclick="app.setRangePoint(${ctxEntry.lineNum}); app.closeContextPopup();">
           <span class="context-line-num">${ctxEntry.lineNum}</span>
           <span class="context-line-text">${lineText}</span>
         </div>
@@ -810,9 +837,74 @@ class LogAnalyzerApp {
       popup.style.display = 'none';
     }, 200);
   }
-}
 
-// 创建全局实例
+  /**
+   * 设置范围点（双击调用）
+   */
+  setRangePoint(lineNum) {
+    if (this.rangeStart === null) {
+      // 设置起点
+      this.rangeStart = lineNum;
+      this.rangeEnd = null;
+      Utils.showToast(`🟢 已设置起点: Line ${lineNum}，双击另一行设置终点`);
+    } else if (this.rangeEnd === null) {
+      // 设置终点
+      if (lineNum < this.rangeStart) {
+        // 如果新点比起点小，交换
+        this.rangeEnd = this.rangeStart;
+        this.rangeStart = lineNum;
+      } else {
+        this.rangeEnd = lineNum;
+      }
+      Utils.showToast(`🔴 已框定范围: Line ${this.rangeStart} ~ Line ${this.rangeEnd} (${this.rangeEnd - this.rangeStart + 1} 行)`);
+    } else {
+      // 已有点，重新设置起点
+      this.rangeStart = lineNum;
+      this.rangeEnd = null;
+      Utils.showToast(`🟢 重置起点: Line ${lineNum}，双击另一行设置终点`);
+    }
+    this.applyFilters();
+  }
+
+  /**
+   * 清除范围
+   */
+  clearRange() {
+    this.rangeStart = null;
+    this.rangeEnd = null;
+    this.applyFilters();
+    Utils.showToast('已清除范围限制');
+  }
+
+  /**
+   * 渲染范围指示器
+   */
+  renderRangeIndicator() {
+    const indicator = document.getElementById('rangeIndicator');
+    if (!indicator) return;
+    
+    if (this.rangeStart !== null && this.rangeEnd !== null) {
+      indicator.innerHTML = `
+        <div class="range-active">
+          <span class="range-label">📐 范围:</span>
+          <span class="range-value">Line ${this.rangeStart} ~ Line ${this.rangeEnd}</span>
+          <button class="range-clear" onclick="app.clearRange()">✕ 清除</button>
+        </div>
+      `;
+      indicator.style.display = '';
+    } else if (this.rangeStart !== null) {
+      indicator.innerHTML = `
+        <div class="range-active range-partial">
+          <span class="range-label">🟢 起点: Line ${this.rangeStart}</span>
+          <button class="range-clear" onclick="app.clearRange()">✕ 清除</button>
+        </div>
+      `;
+      indicator.style.display = '';
+    } else {
+      indicator.style.display = 'none';
+    }
+  }
+}
 let app;
 document.addEventListener('DOMContentLoaded', () => {
   app = new LogAnalyzerApp();
