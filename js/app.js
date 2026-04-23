@@ -334,12 +334,14 @@ class LogAnalyzerApp {
     div.className = classes;
     div.dataset.lineNum = entry.lineNum;
     
-    // 单击打开上下文浮窗
-    div.style.cursor = 'pointer';
-    div.addEventListener('click', (e) => {
-      if (e.target.closest('.context-popup')) return;
-      this.showContextPopup(entry);
-    });
+    // 单击打开上下文浮窗（仅在搜索过滤后显示）
+    div.style.cursor = this.searchRegex ? 'pointer' : 'default';
+    if (this.searchRegex) {
+      div.addEventListener('click', (e) => {
+        if (e.target.closest('.context-popup')) return;
+        this.showContextPopup(entry);
+      });
+    }
     
     // 双击设置范围起点/终点
     div.addEventListener('dblclick', (e) => {
@@ -763,6 +765,7 @@ class LogAnalyzerApp {
    */
   showContextPopup(entry) {
     const popup = document.getElementById('contextPopup');
+    const overlay = document.getElementById('contextPopupOverlay');
     const body = document.getElementById('contextPopupBody');
     const lineNumEl = document.getElementById('contextLineNumber');
     const badgeEl = document.getElementById('contextModuleBadge');
@@ -784,8 +787,8 @@ class LogAnalyzerApp {
       badgeEl.style.display = 'none';
     }
     
-    // 获取上下文行（前后各 10 行）
-    const contextRange = 10;
+    // 获取上下文行（扩大范围到前后各 50 行）
+    const contextRange = 50;
     const currentIndex = this.logEntries.findIndex(e => e.lineNum === entry.lineNum);
     const startIdx = Math.max(0, currentIndex - contextRange);
     const endIdx = Math.min(this.logEntries.length, currentIndex + contextRange + 1);
@@ -814,9 +817,15 @@ class LogAnalyzerApp {
     
     body.innerHTML = html;
     
-    // 显示浮窗
+    // 显示遮罩和浮窗
+    overlay.style.display = '';
     popup.style.display = '';
-    popup.classList.add('active');
+    
+    // 使用 requestAnimationFrame 确保动画流畅
+    requestAnimationFrame(() => {
+      overlay.classList.add('active');
+      popup.classList.add('active');
+    });
     
     // 滚动到目标行（在浮窗内）
     const targetLine = body.querySelector('.context-line-target');
@@ -832,9 +841,14 @@ class LogAnalyzerApp {
    */
   closeContextPopup() {
     const popup = document.getElementById('contextPopup');
+    const overlay = document.getElementById('contextPopupOverlay');
+    
     popup.classList.remove('active');
+    overlay.classList.remove('active');
+    
     setTimeout(() => {
       popup.style.display = 'none';
+      overlay.style.display = 'none';
     }, 200);
   }
 

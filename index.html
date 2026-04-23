@@ -69,6 +69,12 @@
           <span>显示 <span class="stat-value stat-accent" id="statShown">0</span></span>
           <span>匹配 <span class="stat-value" id="statMatched" style="color:var(--accent)">0</span></span>
         </div>
+        <div class="font-size-control">
+          <button class="btn btn-xs" onclick="app.decreaseFontSize()" title="缩小字体">A-</button>
+          <span class="font-size-label" id="fontSizeLabel">12px</span>
+          <button class="btn btn-xs" onclick="app.increaseFontSize()" title="放大字体">A+</button>
+          <button class="btn btn-xs" onclick="app.resetFontSize()" title="重置字体">重置</button>
+        </div>
         <button class="btn btn-sm" onclick="clearLogs()">清空</button>
         <button class="btn btn-sm" onclick="exportFiltered()">导出</button>
       </div>
@@ -87,6 +93,19 @@
             </div>
           </div>
         </div>
+      </div>
+      
+      <!-- Bottom Search Results Panel -->
+      <div class="search-results-panel" id="searchResultsPanel" style="display:none">
+        <div class="search-results-header">
+          <div class="search-results-title">🔍 搜索结果 (<span id="searchResultCount">0</span> 条)</div>
+          <div class="search-results-controls">
+            <button class="btn btn-xs" onclick="app.prevSearchResult()" title="上一个 (Shift+Enter)">↑ 上一个</button>
+            <button class="btn btn-xs" onclick="app.nextSearchResult()" title="下一个 (Enter)">↓ 下一个</button>
+            <button class="btn btn-xs" onclick="app.closeSearchResults()">✕ 关闭</button>
+          </div>
+        </div>
+        <div class="search-results-list" id="searchResultsList"></div>
       </div>
     </div>
 
@@ -415,8 +434,11 @@
   </div>
 </div>
 
+<!-- Context Popup Overlay -->
+<div class="context-popup-overlay" id="contextPopupOverlay" style="display:none" onclick="app.closeContextPopup()"></div>
+
 <!-- Context Popup -->
-<div class="context-popup" id="contextPopup" style="display:none">
+<div class="context-popup" id="contextPopup" style="display:none" onclick="event.stopPropagation()">
   <div class="context-popup-header">
     <div class="context-popup-title">
       <span class="context-popup-line">Line <span id="contextLineNumber">0</span></span>
